@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>충전도 기반 보관 수명 특성 예측 — STEAM Project Hub</title>
-  <meta name="description" content="충전도(SOC) 정보를 활용한 보관 수명 특성 예측 모델 — 입력 + ONNX 추론" />
+  <meta name="description" content="충전도(SOC) 정보를 활용한 보관 수명 특성 예측 모델 — 입력 + ONNX 추론(멀티스텝 예측/그래프 표시)" />
   <style>
     :root{
       --bg:#0b0d12; --fg:#e8ecf3; --muted:#a5afc2; --card:#12161f; --border:#1c2230;
@@ -41,18 +41,14 @@
     .card .body{padding:16px}
 
     .row{display:grid; gap:12px; grid-template-columns: 1fr}
-    @media (min-width:720px){ .row.cols-2{ grid-template-columns: 1fr 1fr; } }
+    @media (min-width:720px){ .row.cols-2{ grid-template-columns: 1fr 1fr; } .row.cols-3{ grid-template-columns: 1fr 1fr 1fr; } }
 
     .label{font-size:13px; color:var(--muted); margin-bottom:6px}
     .field{position:relative}
     .field input[type="number"],
     .field input[type="text"],
-    .field button,
-    .field .fakeinput{
-      width:100%; padding:12px 14px; border-radius:12px; background:color-mix(in srgb,var(--card),transparent 8%);
-      border:1px solid var(--border); color:var(--fg); outline:none;
-      transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
-    }
+    .field button{width:100%; padding:12px 14px; border-radius:12px; background:color-mix(in srgb,var(--card),transparent 8%);
+      border:1px solid var(--border); color:var(--fg); outline:none; transition:border-color .2s var(--ease), box-shadow .2s var(--ease)}
     input::placeholder{color:color-mix(in srgb,var(--muted),transparent 30%)}
     input:focus{border-color:color-mix(in srgb,var(--accent),transparent 40%); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent),transparent 85%)}
 
@@ -73,10 +69,9 @@
     .btn.primary{background:linear-gradient(180deg,var(--accent),#6b86ff); color:#fff; border-color:transparent}
     .btn.ghost{background:transparent; color:var(--fg)}
     .btn[disabled]{opacity:.6; cursor:not-allowed}
-
-    .muted{color:var(--muted)}
     .hint{font-size:12px; color:var(--muted)}
 
+    /* 출력 */
     .stats{display:grid; gap:10px; grid-template-columns:1fr; margin-bottom:10px}
     @media (min-width:720px){ .stats{ grid-template-columns: repeat(3, 1fr); } }
     .stat{border:1px solid var(--border); border-radius:12px; padding:12px}
@@ -87,9 +82,15 @@
     thead th{font-size:12px; color:var(--muted); text-align:left; padding:10px}
     tbody td{padding:10px; border-top:1px solid var(--border)}
     tbody tr:hover{background:color-mix(in srgb,var(--card),transparent 12%)}
-
-    .output-disabled .body{opacity:.6; filter:grayscale(.1)}
     .warn{font-size:12px; color:#ffb4b4}
+
+    /* 차트 */
+    .chartWrap{border:1px solid var(--border); border-radius:12px; padding:10px; margin-bottom:12px}
+    .chartWrap svg{width:100%; height:320px; display:block}
+    .leg{display:flex; gap:12px; font-size:12px; color:var(--muted); margin-top:6px}
+    .badge{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:middle}
+    .b-obs{background:#888}
+    .b-pred{background:#7c9cff}
   </style>
 </head>
 <body>
@@ -107,7 +108,7 @@
 
     <section class="hero">
       <h1>충전도 기반 보관 수명 특성 예측 모델</h1>
-      <p class="muted">입력값을 추가하고 실행하면 내장된 ONNX 모델로 다음 시점 용량을 예측합니다.</p>
+      <p class="muted">초기 구간(5–10%)의 시간–용량 데이터를 입력하면, ONNX 모델로 이후 구간의 용량 곡선을 예측합니다.</p>
     </section>
 
     <section class="grid">
@@ -119,10 +120,14 @@
         </header>
         <div class="body">
           <form id="shelfForm" novalidate>
-            <div class="row cols-2" style="margin-bottom:14px">
+            <div class="row cols-3" style="margin-bottom:14px">
               <div class="field with-unit" data-unit="mAh">
                 <div class="label">초기 방전 용량</div>
                 <input id="initCap" name="initCap" type="number" inputmode="decimal" step="any" min="0" placeholder="예: 2500" required />
+              </div>
+              <div class="field with-unit" data-unit="단계">
+                <div class="label">예측 스텝 수</div>
+                <input id="stepsN" name="stepsN" type="number" inputmode="numeric" min="1" max="300" step="1" value="30" />
               </div>
               <div class="field">
                 <div class="label">메모 (선택)</div>
@@ -153,13 +158,22 @@
           </div>
         </header>
         <div class="body">
+          <div class="chartWrap">
+            <svg id="chartSvg" viewBox="0 0 800 320" preserveAspectRatio="none" aria-label="예측 용량 곡선"></svg>
+            <div class="leg">
+              <span><i class="badge b-obs"></i>관측</span>
+              <span><i class="badge b-pred"></i>예측</span>
+            </div>
+          </div>
+
           <div class="stats" id="outStats">
             <div class="stat"><div class="k">다음 시점 (초)</div><div class="v" id="statNextT">—</div></div>
             <div class="stat"><div class="k">예측 용량 (mAh)</div><div class="v" id="statPred">—</div></div>
             <div class="stat"><div class="k">예측 보존율</div><div class="v" id="statRet">—</div></div>
           </div>
+
           <div id="warnBox" class="warn"></div>
-          <table id="outTable" aria-label="예측 테이블">
+          <table id="outTable" aria-label="요약">
             <thead><tr><th>t (s)</th><th>capacity_hat (mAh)</th><th>retention_hat</th></tr></thead>
             <tbody></tbody>
           </table>
@@ -168,19 +182,25 @@
     </section>
   </main>
 
+  <!-- onnxruntime-web (오프라인용): vendor/ort.min.js 파일을 프로젝트에 포함하세요. -->
   <script src="vendor/ort.min.js"></script>
 
   <script>
-    const MODEL_TO_UI = 1000;
+    // ===== 상수/상태 =====
+    const MODEL_TO_UI = 1000;          // Ah -> mAh
     const UI_TO_MODEL = 1 / MODEL_TO_UI;
     const list = document.getElementById('measureList');
     const addBtn = document.getElementById('addRow');
     const runBtn = document.getElementById('runBtn');
     const form = document.getElementById('shelfForm');
     const dlCsvBtn = document.getElementById('dlCsv');
+    const stepsInput = document.getElementById('stepsN');
+    const WARN = document.getElementById('warnBox');
+    const LS_KEY = 'model:shelf:inputs:v2';
 
-    const LS_KEY = 'model:shelf:inputs';
+    function warn(msg){ WARN.textContent = msg || ''; }
 
+    // ===== 입력 UI =====
     function makeRow(t = '', cap = ''){
       const wrap = document.createElement('div');
       wrap.className = 'measure-item';
@@ -197,19 +217,18 @@
       wrap.querySelectorAll('input').forEach(i=> i.addEventListener('input', updateState));
       return wrap;
     }
-
     function addRow(t, cap){ list.appendChild(makeRow(t, cap)); updateState(); }
 
     function getData(){
       const initCap = parseFloat(document.getElementById('initCap').value);
       const note = document.getElementById('note').value || '';
+      const stepsN = Math.max(1, Math.min(300, Number(stepsInput.value||30)));
       const rows = [...list.querySelectorAll('.measure-item')].map(item=>{
         const [tEl, cEl] = item.querySelectorAll('input');
         return { t: tEl.value === '' ? null : Number(tEl.value), cap: cEl.value === '' ? null : Number(cEl.value) };
       });
-      return { initCap: isFinite(initCap) ? initCap : null, note, rows };
+      return { initCap: isFinite(initCap) ? initCap : null, note, rows, stepsN };
     }
-
     function isValid(){
       const d = getData();
       if(d.initCap === null || d.initCap < 0) return false;
@@ -217,7 +236,6 @@
       for(const r of d.rows){ if(r.t === null || r.t < 0) return false; if(r.cap === null || r.cap < 0) return false; }
       return true;
     }
-
     function updateState(){
       runBtn.disabled = !isValid();
       try{ localStorage.setItem(LS_KEY, JSON.stringify(getData())); }catch(e){}
@@ -226,12 +244,14 @@
     document.getElementById('clearAll').addEventListener('click', ()=>{
       document.getElementById('initCap').value = '';
       document.getElementById('note').value = '';
+      stepsInput.value = 30;
       list.innerHTML = ''; addRow(); updateState();
     });
 
     document.getElementById('loadSample').addEventListener('click', ()=>{
       document.getElementById('initCap').value = 2500;
       document.getElementById('note').value = '예시 배치 A';
+      stepsInput.value = 30;
       list.innerHTML = '';
       addRow(3600, 2486); addRow(7200, 2471); addRow(10800, 2455);
       updateState();
@@ -245,6 +265,7 @@
         if(saved){
           if(saved.initCap != null) document.getElementById('initCap').value = saved.initCap;
           if(saved.note) document.getElementById('note').value = saved.note;
+          if(saved.stepsN) stepsInput.value = saved.stepsN;
           list.innerHTML = '';
           if(Array.isArray(saved.rows) && saved.rows.length){ for(const r of saved.rows){ addRow(r.t ?? '', r.cap ?? ''); } }
           else { addRow(); }
@@ -253,9 +274,7 @@
       updateState();
     })();
 
-    const WARN = document.getElementById('warnBox');
-    function warn(msg){ WARN.textContent = msg || ''; }
-
+    // ===== 아티팩트/세션 =====
     async function loadArtifacts(){
       const [fcols, meta] = await Promise.all([
         fetch('models/shelf/feature_cols.json').then(r=>r.json()),
@@ -263,27 +282,44 @@
       ]);
       return { featureCols: fcols, meta: meta || {} };
     }
+    let ortSession = null;
+    async function ensureSession(){
+      if(!('ort' in window)) throw new Error('onnxruntime-web(ort.min.js)를 로드하지 못했습니다. vendor/ort.min.js 경로를 확인하세요.');
+      if(ortSession) return ortSession;
+      ort.env.wasm.proxy = true;
+      ortSession = await ort.InferenceSession.create('models/shelf/shelf.onnx');
+      return ortSession;
+    }
 
+    // ===== 특성 구성 보조 =====
     function median(arr){ const a=[...arr].sort((x,y)=>x-y); const n=a.length; return n? (n%2? a[(n-1)/2] : (a[n/2-1]+a[n/2])/2) : NaN; }
 
     function buildFeatures(payload, featureCols, meta){
       const unknown = [];
+      // 1) 정렬 + 단위 변환
       const rowsRaw = payload.rows.filter(r=> r.t!=null && r.cap!=null).sort((a,b)=> a.t - b.t);
       if(rowsRaw.length===0) throw new Error('측정 행이 없습니다.');
-      const rows = rowsRaw.map(r => ({ t: Number(r.t), cap: Number(r.cap) * UI_TO_MODEL }));
+      const rows = rowsRaw.map(r => ({ t: Number(r.t), cap: Number(r.cap) * UI_TO_MODEL })); // mAh → Ah
       const C0_UI = payload.initCap;
+      const C0 = (C0_UI != null ? C0_UI : 0) * UI_TO_MODEL; // Ah
+
+      // 2) 시간/간격
       const t0 = rows[0].t;
       const last = rows[rows.length-1];
       const elapsedLast = Math.max(0, last.t - t0);
       const diffs = rows.slice(1).map((r,i)=> Math.max(1, r.t - rows[i].t));
       const dt_s = diffs.length ? median(diffs) : 3600;
-      const C_last = last.cap;
+
+      // 3) 용량/래그
+      const C_last = last.cap; // Ah
       const LAGS = Number(meta?.LAGS ?? 0);
       const lagVals = [];
       for(let i=0;i<LAGS;i++){
         const idx = rows.length - 1 - i;
         lagVals.push(idx>=0? rows[idx].cap : C_last);
       }
+
+      // 4) 맵/피처벡터
       const map = {
         'elapsed_s': elapsedLast,
         'elapsed_s_log1p': Math.log1p(elapsedLast),
@@ -291,8 +327,10 @@
         'dt_s': dt_s,
         'cap_aged_est_Ah': C_last,
         'timestamp_s': t0 + elapsedLast,
+        // 'cap_init_Ah': C0, // 필요시
       };
       for(let i=1;i<=LAGS;i++){ map['cap_lag'+i] = lagVals[i-1]; }
+
       const feats = new Float32Array(featureCols.length);
       for(let i=0;i<featureCols.length;i++){
         const name = featureCols[i];
@@ -307,28 +345,56 @@
       return {
         feats,
         dt_s,
+        t0,
         t_next: t0 + elapsedLast + dt_s,
         C0_UI,
+        rows_Ah: rows, // t, cap(Ah)
         unknown
       };
     }
 
-    let ortSession = null;
-    async function ensureSession(){
-      if(!('ort' in window)) throw new Error('onnxruntime-web(ort.min.js)를 로드하지 못했습니다. vendor/ort.min.js 경로를 확인하세요.');
-      if(ortSession) return ortSession;
-      ort.env.wasm.proxy = true;
-      ortSession = await ort.InferenceSession.create('models/shelf/shelf.onnx');
-      return ortSession;
+    // ===== 예측 롤아웃(멀티스텝) =====
+    async function rolloutPredictions(session, featureCols, meta, payload){
+      // 관측(입력) 시퀀스(UI 단위)와 예측 결과(UI 단위) 생성
+      const observed = payload.rows
+        .filter(r=> r.t!=null && r.cap!=null)
+        .sort((a,b)=> a.t - b.t)
+        .map(r=> ({ t:Number(r.t), cap_mAh:Number(r.cap) }));
+
+      const stepsN = Math.max(1, Math.min(300, Number(payload.stepsN||30)));
+
+      // 내부 루프는 buildFeatures를 재사용: 각 스텝마다 rows에 예측을 append
+      let rowsUI = observed.map(r=> ({...r})); // mAh
+      const predicted = [];
+
+      let firstStepInfo = null; // 요약카드 표시에 사용
+      for(let k=0;k<stepsN;k++){
+        const ctx = buildFeatures({ initCap: payload.initCap, rows: rowsUI }, featureCols, meta);
+        const inputName = session.inputNames[0];
+        const outputName = session.outputNames[0];
+        const tensor = new ort.Tensor('float32', ctx.feats, [1, ctx.feats.length]);
+        const results = await session.run({ [inputName]: tensor });
+        const yhat_Ah = results[outputName].data[0];
+        const yhat_mAh = yhat_Ah * MODEL_TO_UI;
+
+        // 첫 스텝 정보 저장(요약)
+        if(k===0) firstStepInfo = { t_next: ctx.t_next, yhat_mAh, C0_UI: ctx.C0_UI, unknown: ctx.unknown };
+
+        // 시퀀스에 예측을 추가하고 다음 스텝
+        rowsUI = rowsUI.concat([{ t: ctx.t_next, cap_mAh: yhat_mAh }]);
+        predicted.push({ t: ctx.t_next, cap_mAh: yhat_mAh });
+      }
+
+      return { observed, predicted, firstStepInfo };
     }
 
+    // ===== CSV 유틸 =====
     function toCSV(rows){
       const cols = Object.keys(rows[0]||{});
       const head = cols.join(',');
       const body = rows.map(r=> cols.map(c=> String(r[c])).join(',')).join('\n');
       return head + '\n' + body + '\n';
     }
-
     function download(name, text){
       const blob = new Blob([text], {type:'text/csv;charset=utf-8;'});
       const url = URL.createObjectURL(blob);
@@ -337,51 +403,174 @@
       URL.revokeObjectURL(url);
     }
 
-    function renderOutput(yhat_Ah, ctx){
-      const pred_UI = yhat_Ah * MODEL_TO_UI;
-      const retention = ctx.C0_UI ? (pred_UI / ctx.C0_UI) : NaN;
-      const retentionAdj = retention * 0.1; // 임시 스케일
+    // ===== 차트 그리기 (SVG) =====
+    function drawChart(svg, observed, predicted){
+      // 준비
+      while(svg.firstChild) svg.removeChild(svg.firstChild);
+      const W = 800, H = 320; // viewBox 기준
+      const m = { l:50, r:18, t:14, b:36 };
+      const x0 = m.l, y0 = m.t, x1 = W - m.r, y1 = H - m.b, w = x1 - x0, h = y1 - y0;
 
-      document.getElementById('statNextT').textContent = Math.round(ctx.t_next);
+      // 데이터 범위
+      const all = observed.concat(predicted);
+      if(!all.length) return;
+      const tMin = Math.min(...all.map(p=>p.t));
+      const tMax = Math.max(...all.map(p=>p.t));
+      const cMin = Math.min(...all.map(p=>p.cap_mAh));
+      const cMax = Math.max(...all.map(p=>p.cap_mAh));
+      const padY = (cMax - cMin) * 0.1 || 10;
+
+      // 스케일러
+      const sx = t => x0 + ( (t - tMin) / (tMax - tMin || 1) ) * w;
+      const sy = c => y1 - ( (c - (cMin - padY)) / ((cMax + padY) - (cMin - padY) || 1) ) * h;
+
+      // 축/격자
+      const gx = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      const gy = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      const box = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      box.setAttribute('x', x0); box.setAttribute('y', y0);
+      box.setAttribute('width', w); box.setAttribute('height', h);
+      box.setAttribute('fill','none'); box.setAttribute('stroke','var(--border)');
+      svg.appendChild(box);
+
+      const TICKS = 5;
+      for(let i=0;i<=TICKS;i++){
+        const tx = x0 + (w * i / TICKS);
+        const tLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        tLine.setAttribute('x1', tx); tLine.setAttribute('x2', tx);
+        tLine.setAttribute('y1', y0); tLine.setAttribute('y2', y1);
+        tLine.setAttribute('stroke','color-mix(in srgb,var(--fg),transparent 88%)');
+        tLine.setAttribute('stroke-width','1');
+        tLine.setAttribute('shape-rendering','crispEdges');
+        gx.appendChild(tLine);
+
+        const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+        const tVal = tMin + (tMax - tMin) * i / TICKS;
+        lbl.setAttribute('x', tx); lbl.setAttribute('y', y1 + 16);
+        lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('font-size','12');
+        lbl.setAttribute('fill','var(--muted)');
+        lbl.textContent = Math.round(tVal);
+        svg.appendChild(lbl);
+      }
+      for(let i=0;i<=TICKS;i++){
+        const cy = y0 + (h * i / TICKS);
+        const yLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        yLine.setAttribute('x1', x0); yLine.setAttribute('x2', x1);
+        yLine.setAttribute('y1', cy); yLine.setAttribute('y2', cy);
+        yLine.setAttribute('stroke','color-mix(in srgb,var(--fg),transparent 88%)');
+        yLine.setAttribute('stroke-width','1');
+        yLine.setAttribute('shape-rendering','crispEdges');
+        gy.appendChild(yLine);
+
+        const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+        const cVal = (cMax + padY) - ( ( (cMax + padY) - (cMin - padY) ) * i / TICKS );
+        lbl.setAttribute('x', x0 - 8); lbl.setAttribute('y', cy + 4);
+        lbl.setAttribute('text-anchor','end'); lbl.setAttribute('font-size','12');
+        lbl.setAttribute('fill','var(--muted)');
+        lbl.textContent = Math.round(cVal);
+        svg.appendChild(lbl);
+      }
+      svg.appendChild(gx); svg.appendChild(gy);
+
+      // 관측 점
+      const gObs = document.createElementNS('http://www.w3.org/2000/svg','g');
+      observed.forEach(p=>{
+        const cc = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        cc.setAttribute('cx', sx(p.t)); cc.setAttribute('cy', sy(p.cap_mAh));
+        cc.setAttribute('r', 3.2); cc.setAttribute('fill', '#888');
+        gObs.appendChild(cc);
+      });
+      svg.appendChild(gObs);
+
+      // 예측 선
+      if(predicted.length){
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        const d = predicted.map((p,i)=> (i===0? 'M':'L') + sx(p.t) + ' ' + sy(p.cap_mAh)).join(' ');
+        path.setAttribute('d', d);
+        path.setAttribute('fill','none'); path.setAttribute('stroke','#7c9cff'); path.setAttribute('stroke-width','2.2');
+        svg.appendChild(path);
+
+        // 관측/예측 경계(첫 예측 시점)
+        const tBoundary = predicted[0].t;
+        const sep = document.createElementNS('http://www.w3.org/2000/svg','line');
+        sep.setAttribute('x1', sx(tBoundary)); sep.setAttribute('x2', sx(tBoundary));
+        sep.setAttribute('y1', y0); sep.setAttribute('y2', y1);
+        sep.setAttribute('stroke','color-mix(in srgb,var(--accent),transparent 50%)');
+        sep.setAttribute('stroke-dasharray','4 4');
+        sep.setAttribute('stroke-width','1.6');
+        svg.appendChild(sep);
+      }
+
+      // 축 제목
+      const xl = document.createElementNS('http://www.w3.org/2000/svg','text');
+      xl.setAttribute('x', (x0+x1)/2); xl.setAttribute('y', H-6);
+      xl.setAttribute('text-anchor','middle'); xl.setAttribute('font-size','12'); xl.setAttribute('fill','var(--muted)');
+      xl.textContent = '시간 t (초)';
+      svg.appendChild(xl);
+
+      const yl = document.createElementNS('http://www.w3.org/2000/svg','text');
+      yl.setAttribute('x', 12); yl.setAttribute('y', (y0+y1)/2);
+      yl.setAttribute('text-anchor','middle'); yl.setAttribute('font-size','12'); yl.setAttribute('fill','var(--muted)');
+      yl.setAttribute('transform', `rotate(-90 12 ${(y0+y1)/2})`);
+      yl.textContent = '용량 (mAh)';
+      svg.appendChild(yl);
+    }
+
+    // ===== 요약/테이블 렌더 =====
+    function renderSummary(firstStep){
+      if(!firstStep){ document.getElementById('statNextT').textContent='—';
+        document.getElementById('statPred').textContent='—';
+        document.getElementById('statRet').textContent='—'; return; }
+
+      const pred_UI = firstStep.yhat_mAh;
+      const retention = firstStep.C0_UI ? (pred_UI / firstStep.C0_UI) : NaN;
+      const retentionAdj = retention * 0.1; // 임시 스케일 유지
+
+      document.getElementById('statNextT').textContent = Math.round(firstStep.t_next);
       document.getElementById('statPred').textContent = pred_UI.toFixed(3);
       document.getElementById('statRet').textContent =
         Number.isFinite(retentionAdj) ? retentionAdj.toFixed(6) : '—';
 
-      warn(ctx.unknown && ctx.unknown.length
-        ? `알 수 없는 피처 ${ctx.unknown.length}개를 0으로 채웠습니다: ${ctx.unknown.slice(0,6).join(', ')}${ctx.unknown.length>6?' …':''}`
+      warn(firstStep.unknown && firstStep.unknown.length
+        ? `알 수 없는 피처 ${firstStep.unknown.length}개를 0으로 채웠습니다: ${firstStep.unknown.slice(0,6).join(', ')}${firstStep.unknown.length>6?' …':''}`
         : '');
 
+      // 표 1행(첫 스텝)
       const tbody = document.querySelector('#outTable tbody');
       tbody.innerHTML = '';
       const row = {
-        t: Math.round(ctx.t_next),
+        t: Math.round(firstStep.t_next),
         capacity_hat: Number(pred_UI.toFixed(6)),
-        retention_hat: Number(retentionAdj.toFixed(8))
+        retention_hat: Number((retentionAdj||0).toFixed(8))
       };
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${row.t}</td><td>${row.capacity_hat}</td><td>${row.retention_hat}</td>`;
       tbody.appendChild(tr);
-
-      dlCsvBtn.disabled = false;
-      dlCsvBtn.onclick = ()=> download('shelf_pred.csv', toCSV([row]));
     }
 
+    // ===== 실행(멀티스텝) =====
     form.addEventListener('submit', async (e)=>{
       e.preventDefault();
       try{
         warn('');
         const payload = getData();
         const { featureCols, meta } = await loadArtifacts();
-        const ctx = buildFeatures(payload, featureCols, meta);
         const session = await ensureSession();
 
-        const inputName = session.inputNames[0];
-        const outputName = session.outputNames[0];
-        const tensor = new ort.Tensor('float32', ctx.feats, [1, ctx.feats.length]);
-        const results = await session.run({ [inputName]: tensor });
-        const yhat = results[outputName].data[0];
+        // 롤아웃
+        const { observed, predicted, firstStepInfo } =
+          await rolloutPredictions(session, featureCols, meta, payload);
 
-        renderOutput(yhat, ctx);
+        // 차트
+        drawChart(document.getElementById('chartSvg'), observed, predicted);
+
+        // 요약/표
+        renderSummary(firstStepInfo);
+
+        // CSV(예측 곡선 전체)
+        const csvRows = predicted.map(p=> ({ t: Math.round(p.t), capacity_hat_mAh: Number(p.cap_mAh.toFixed(6)) }));
+        dlCsvBtn.disabled = predicted.length === 0;
+        dlCsvBtn.onclick = ()=> download('shelf_pred_curve.csv', toCSV(csvRows));
       }catch(err){
         console.error(err);
         warn('실행 중 오류: ' + (err && err.message ? err.message : err));

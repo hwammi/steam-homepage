@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>충전도 기반 보관 수명 특성 예측 — STEAM Project Hub</title>
-  <meta name="description" content="충전도(SOC) 정보를 활용한 보관 수명 특성 예측 모델 — 입력 + ONNX 추론 + 그래프" />
+  <meta name="description" content="충전도(SOC) 정보를 활용한 보관 수명 특성 예측 모델 — 입력 + ONNX 추론 + 롤아웃 그래프" />
   <style>
     :root{
       --bg:#0b0d12; --fg:#e8ecf3; --muted:#a5afc2; --card:#12161f; --border:#1c2230;
@@ -195,7 +195,7 @@
   <script src="vendor/ort.min.js"></script>
 
   <script>
-    // ===== 단위 변환 상수 =====
+    // ===== 단위 변환 =====
     const MODEL_TO_UI = 1000;     // Ah -> mAh
     const UI_TO_MODEL = 1 / 1000; // mAh -> Ah
 
@@ -332,6 +332,13 @@
       };
       for(let i=1;i<=LAGS;i++){ map['cap_lag'+i] = lagVals[i-1]; }
 
+      // (옵션) meta.defaults에 기본값이 있으면 채워넣기 (예: age_temp, age_soc 등)
+      if (meta && meta.defaults) {
+        for (const k of Object.keys(meta.defaults)) {
+          if (!(k in map)) map[k] = meta.defaults[k];
+        }
+      }
+
       // 5) 피처 벡터
       const feats = new Float32Array(featureCols.length);
       for(let i=0;i<featureCols.length;i++){
@@ -362,7 +369,7 @@
       return ortSession;
     }
 
-    // ===== 차트 그리기 (순수 Canvas) =====
+    // ===== 차트 (Canvas) =====
     function renderChart(observed, predicted){
       const canvas = document.getElementById('capChart');
       const dpr = window.devicePixelRatio || 1;
@@ -370,31 +377,31 @@
       canvas.width = Math.round(cssW * dpr);
       canvas.height = Math.round(cssH * dpr);
       const ctx = canvas.getContext('2d');
-      ctx.setTransform(dpr,0,0,dpr,0,0); // 좌표를 CSS 픽셀 기준으로
+      ctx.setTransform(dpr,0,0,dpr,0,0); // CSS 픽셀 기준
 
       const left=40, right=10, top=10, bottom=26;
       const W = cssW - left - right;
       const H = cssH - top - bottom;
 
       const all = [...observed, ...predicted];
-      if(all.length===0){ ctx.clearRect(0,0,cssW,cssH); return; }
-      const minX = Math.min(...all.map(p=>p.t));
-      const maxX = Math.max(...all.map(p=>p.t));
-      const minY = Math.min(...all.map(p=>p.cap_mAh));
-      const maxY = Math.max(...all.map(p=>p.cap_mAh));
+      ctx.clearRect(0,0,cssW,cssH);
+      if(all.length===0) return;
 
+      const allT = all.map(p=>p.t);
+      const allC = all.map(p=>p.cap_mAh);
+      const minX = Math.min(...allT), maxX = Math.max(...allT);
+      const minY = Math.min(...allC), maxY = Math.max(...allC);
       const xmap = x => left + (W * (x - minX)) / Math.max(1, (maxX - minX || 1));
       const ymap = y => top + H - (H * (y - minY)) / Math.max(1e-6, (maxY - minY || 1));
 
-      // 배경 & 축
-      ctx.clearRect(0,0,cssW,cssH);
+      // 축
       ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--border') || '#333';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(left, top); ctx.lineTo(left, top+H); ctx.lineTo(left+W, top+H);
       ctx.stroke();
 
-      // 예측: 라인
+      // 예측선
       if(predicted.length){
         ctx.strokeStyle = '#7c9cff';
         ctx.lineWidth = 2;
@@ -404,21 +411,21 @@
         ctx.stroke();
       }
 
-      // 관측: 점
+      // 관측점
       ctx.fillStyle = '#00d1b2';
       for(const p of observed){
         const x = xmap(p.t), y = ymap(p.cap_mAh);
         ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
       }
 
-      // 간단한 눈금 라벨
+      // 라벨
       ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted') || '#aaa';
       ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto';
       ctx.textAlign = 'center'; ctx.fillText('t (s)', left+W/2, cssH-6);
       ctx.save(); ctx.translate(14, top+H/2); ctx.rotate(-Math.PI/2); ctx.fillText('Capacity (mAh)', 0, 0); ctx.restore();
     }
 
-    // ===== CSV 유틸 =====
+    // ===== CSV =====
     function toCSV(rows){
       const cols = Object.keys(rows[0]||{});
       const head = cols.join(',');
@@ -433,37 +440,35 @@
       URL.revokeObjectURL(url);
     }
 
-    // ===== 출력 표시 =====
+    // ===== 첫 스텝 요약 카드/표 =====
     function renderOutputFromFirst(firstStepInfo){
       const { t_next, yhat_mAh, C0_UI, unknown } = firstStepInfo;
 
-      // 보존율(임시 0.1배)
-      const retention = C0_UI ? (yhat_mAh / C0_UI) : NaN;
-      const retentionAdj = retention * 0.1;
+      const retention = C0_UI ? (yhat_mAh / C0_UI) : NaN; // 정상 보존율
+      const retentionPct = Number.isFinite(retention) ? (retention*100) : NaN;
 
       document.getElementById('statNextT').textContent = Math.round(t_next);
       document.getElementById('statPred').textContent = yhat_mAh.toFixed(3);
       document.getElementById('statRet').textContent =
-        Number.isFinite(retentionAdj) ? retentionAdj.toFixed(6) : '—';
+        Number.isFinite(retention) ? `${retention.toFixed(6)} (${retentionPct.toFixed(2)}%)` : '—';
 
       warn(unknown && unknown.length
         ? `알 수 없는 피처 ${unknown.length}개를 0으로 채웠습니다: ${unknown.slice(0,6).join(', ')}${unknown.length>6?' …':''}`
         : '');
 
-      // 표는 첫 스텝만 요약
       const tbody = document.querySelector('#outTable tbody');
       tbody.innerHTML = '';
       const row = {
         t: Math.round(t_next),
         capacity_hat: Number(yhat_mAh.toFixed(6)),
-        retention_hat: Number((retentionAdj).toFixed(8))
+        retention_hat: Number(retention.toFixed(8))
       };
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${row.t}</td><td>${row.capacity_hat}</td><td>${row.retention_hat}</td>`;
       tbody.appendChild(tr);
     }
 
-    // ===== 롤아웃 (버그 수정본: buildFeatures에 넘길 rows 키는 {t, cap} 이어야 함) =====
+    // ===== 멀티스텝 롤아웃 =====
     async function rolloutPredictions(session, featureCols, meta, payload){
       // 관측(입력) 시퀀스: 차트/CSV용은 cap_mAh 유지
       const observed = payload.rows
@@ -473,7 +478,7 @@
 
       const stepsN = Math.max(1, Math.min(300, Number(payload.stepsN||30)));
 
-      // ★ buildFeatures()에는 { t, cap }(mAh) 키로 전달해야 함
+      // buildFeatures()는 {t, cap}(mAh) 키를 기대하므로 동일 포맷 유지
       let rowsUI = observed.map(r => ({ t: r.t, cap: r.cap_mAh }));
 
       const predicted = [];
@@ -494,10 +499,10 @@
           firstStepInfo = { t_next: ctx.t_next, yhat_mAh, C0_UI: ctx.C0_UI, unknown: ctx.unknown };
         }
 
-        // 다음 스텝을 위해 rowsUI에 'cap'(mAh) 키로 추가 (중요)
+        // 다음 스텝을 위해 rowsUI에 cap(mAh)로 추가
         rowsUI = rowsUI.concat([{ t: ctx.t_next, cap: yhat_mAh }]);
 
-        // 차트/CSV용 배열엔 cap_mAh로 저장
+        // 차트/CSV용
         predicted.push({ t: ctx.t_next, cap_mAh: yhat_mAh });
       }
 
@@ -513,7 +518,7 @@
         const { featureCols, meta } = await loadArtifacts();
         const session = await ensureSession();
 
-        // 멀티스텝 롤아웃 (첫 스텝 요약 + 전체 곡선)
+        // 멀티스텝 롤아웃
         const { observed, predicted, firstStepInfo } =
           await rolloutPredictions(session, featureCols, meta, payload);
 
@@ -523,7 +528,7 @@
         // 차트
         renderChart(observed, predicted);
 
-        // CSV: 관측+예측 합본
+        // CSV (관측+예측)
         const csvRows = [
           ...observed.map(r => ({ type:'observed', t: r.t, capacity_mAh: r.cap_mAh })),
           ...predicted.map(r => ({ type:'predicted', t: r.t, capacity_mAh: r.cap_mAh })),
@@ -535,6 +540,11 @@
         warn('실행 중 오류: ' + (err && err.message ? err.message : err));
         alert('실행 중 오류가 발생했습니다. 콘솔을 확인해 주세요.');
       }
+    });
+
+    // 푸터 연도
+    document.addEventListener('DOMContentLoaded', ()=>{
+      // (필요 시) 푸터 연도 넣을 요소가 있으면 여기에 추가
     });
   </script>
 </body>

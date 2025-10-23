@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>실험 데이터 — STEAM Project Hub</title>
-  <meta name="description" content="AFM, TEM, SEM, TEY, XPS, XRD, STXM, PXM, FIB-SEM Tomography, EIS 등 실험 데이터셋 선택 페이지 (정적 파일 다운로드)" />
+  <meta name="description" content="AFM, TEM, SEM, TEY, XPS, XRD, STXM, PXM, FIB-SEM Tomography, EIS 등 실험 데이터셋 선택 페이지" />
   <style>
     :root{
       --bg:#0b0d12; --fg:#e8ecf3; --muted:#a5afc2; --card:#12161f; --border:#1c2230;
@@ -31,7 +31,6 @@
     .crumbs{display:flex; gap:8px; align-items:center; font-size:14px; color:var(--muted)}
     .crumbs a{color:var(--muted)}
 
-    /* rows: 4 + 4 + 2 */
     .row{display:grid; gap:20px; grid-template-columns:1fr; margin-top:22px}
     @media (min-width:900px){ .row.cols-4{grid-template-columns:repeat(4,1fr)} .row.cols-2{grid-template-columns:repeat(2,1fr)} }
 
@@ -44,13 +43,11 @@
     .preview{width:100%; aspect-ratio:16/9; object-fit:cover; display:block}
     figcaption{font-weight:800; text-align:center; margin-top:10px}
 
-    /* 대표 이미지 업로더(미리보기용) */
     .uploader input{display:none}
     .btn{display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); cursor:pointer; background:rgba(255,255,255,.03)}
 
     footer{padding:40px 0 60px; color:var(--muted)}
 
-    /* ===== Modal (popup) ===== */
     .modal{position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,0); opacity:0; pointer-events:none; transition:background var(--overlay-dur) ease, opacity var(--overlay-dur) ease}
     .modal.open{background:rgba(0,0,0,.45); opacity:1; pointer-events:auto}
     .panel{width:min(96vw, 980px); max-height:90vh; background:var(--card); border:1px solid var(--border); border-radius:20px; box-shadow:0 30px 90px rgba(0,0,0,.6);
@@ -69,6 +66,9 @@
     .chip{display:flex; justify-content:space-between; align-items:center; gap:10px; border:1px solid var(--border); border-radius:12px; padding:10px 12px}
     .chip a{font-weight:700}
     .empty{color:var(--muted); font-size:14px}
+
+    /* [CHANGED] 대표 이미지 업로더는 숨김 유지 */
+    .card .uploader { display: none !important; }
   </style>
 </head>
 <body>
@@ -85,7 +85,8 @@
     <div class="crumbs"><a href="index.html">홈</a> › <a href="database.html">데이터베이스</a> › <span>실험 데이터</span></div>
     <section class="hero" aria-label="타이틀">
       <h1>실험 데이터 (총 10개)</h1>
-      <p>블록을 클릭하면 같은 화면에서 팝업이 열리고, <strong>사전에 업로드해 둔 데이터셋</strong>을 다운로드할 수 있습니다.</p>
+      <!-- [CHANGED] 안내 문구: 정적 파일만 다운로드 -->
+      <p>블록을 클릭하면 같은 화면에서 팝업이 열리고, <strong>사전에 업로드된 정적 데이터셋</strong>을 다운로드할 수 있습니다.</p>
     </section>
 
     <!-- Row 1: 4 items -->
@@ -93,28 +94,28 @@
       <article class="card" data-id="afm" role="button" tabindex="0">
         <div class="uploader"><label class="btn" for="afmImg">대표 이미지</label><input id="afmImg" type="file" accept="image/*"></div>
         <figure>
-          <img id="afmPreview" class="preview" alt="AFM 미리보기" src="data:image/svg+xml;utf8,<?xml version='1.0'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'><rect width='800' height='450' rx='20' fill='%2312161f'/><rect x='28' y='28' width='744' height='394' rx='12' fill='%231b2030'/></svg>" />
+          <img id="afmPreview" class="preview" alt="AFM 미리보기" src="assets/AFM_thumb.png" />
           <figcaption>AFM (Atomic Force Microscopy)</figcaption>
         </figure>
       </article>
       <article class="card" data-id="tem" role="button" tabindex="0">
         <div class="uploader"><label class="btn" for="temImg">대표 이미지</label><input id="temImg" type="file" accept="image/*"></div>
         <figure>
-          <img id="temPreview" class="preview" alt="TEM 미리보기" src="data:image/svg+xml;utf8,<?xml version='1.0'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'><rect width='800' height='450' rx='20' fill='%2312161f'/><rect x='28' y='28' width='744' height='394' rx='12' fill='%231b2030'/></svg>" />
+          <img id="temPreview" class="preview" alt="TEM 미리보기" src="assets/TEM_thumb.png" />
           <figcaption>TEM (Transmission Electron Microscopy)</figcaption>
         </figure>
       </article>
       <article class="card" data-id="sem" role="button" tabindex="0">
         <div class="uploader"><label class="btn" for="semImg">대표 이미지</label><input id="semImg" type="file" accept="image/*"></div>
         <figure>
-          <img id="semPreview" class="preview" alt="SEM 미리보기" src="data:image/svg+xml;utf8,<?xml version='1.0'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'><rect width='800' height='450' rx='20' fill='%2312161f'/><rect x='28' y='28' width='744' height='394' rx='12' fill='%231b2030'/></svg>" />
+          <img id="semPreview" class="preview" alt="SEM 미리보기" src="assets/SEM_thumb.png" />
           <figcaption>SEM (Scanning Electron Microscopy)</figcaption>
         </figure>
       </article>
       <article class="card" data-id="tey" role="button" tabindex="0">
         <div class="uploader"><label class="btn" for="teyImg">대표 이미지</label><input id="teyImg" type="file" accept="image/*"></div>
         <figure>
-          <img id="teyPreview" class="preview" alt="TEY 미리보기" src="data:image/svg+xml;utf8,<?xml version='1.0'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'><rect width='800' height='450' rx='20' fill='%2312161f'/><rect x='28' y='28' width='744' height='394' rx='12' fill='%231b2030'/></svg>" />
+          <img id="teyPreview" class="preview" alt="TEY 미리보기" src="assets/TEY_thumb.png" />
           <figcaption>TEY (Total Electron Yield)</figcaption>
         </figure>
       </article>
@@ -125,28 +126,28 @@
       <article class="card" data-id="xps" role="button" tabindex="0">
         <div class="uploader"><label class="btn" for="xpsImg">대표 이미지</label><input id="xpsImg" type="file" accept="image/*"></div>
         <figure>
-          <img id="xpsPreview" class="preview" alt="XPS 미리보기" src="data:image/svg+xml;utf8,<?xml version='1.0'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'><rect width='800' height='450' rx='20' fill='%2312161f'/><rect x='28' y='28' width='744' height='394' rx='12' fill='%231b2030'/></svg>" />
+          <img id="xpsPreview" class="preview" alt="XPS 미리보기" src="assets/XPS_thumb.png" />
           <figcaption>XPS (X-ray Photoelectron Spectroscopy)</figcaption>
         </figure>
       </article>
       <article class="card" data-id="xrd" role="button" tabindex="0">
         <div class="uploader"><label class="btn" for="xrdImg">대표 이미지</label><input id="xrdImg" type="file" accept="image/*"></div>
         <figure>
-          <img id="xrdPreview" class="preview" alt="XRD 미리보기" src="data:image/svg+xml;utf8,<?xml version='1.0'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'><rect width='800' height='450' rx='20' fill='%2312161f'/><rect x='28' y='28' width='744' height='394' rx='12' fill='%231b2030'/></svg>" />
+          <img id="xrdPreview" class="preview" alt="XRD 미리보기" src="assets/XRD_thumb.png" />
           <figcaption>XRD (X-ray Diffraction)</figcaption>
         </figure>
       </article>
       <article class="card" data-id="stxm" role="button" tabindex="0">
         <div class="uploader"><label class="btn" for="stxmImg">대표 이미지</label><input id="stxmImg" type="file" accept="image/*"></div>
         <figure>
-          <img id="stxmPreview" class="preview" alt="STXM 미리보기" src="data:image/svg+xml;utf8,<?xml version='1.0'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'><rect width='800' height='450' rx='20' fill='%2312161f'/><rect x='28' y='28' width='744' height='394' rx='12' fill='%231b2030'/></svg>" />
+          <img id="stxmPreview" class="preview" alt="STXM 미리보기" src="assets/STXM_thumb.png" />
           <figcaption>STXM (Scanning Transmission X-ray Microscopy)</figcaption>
         </figure>
       </article>
       <article class="card" data-id="pxm" role="button" tabindex="0">
         <div class="uploader"><label class="btn" for="pxmImg">대표 이미지</label><input id="pxmImg" type="file" accept="image/*"></div>
         <figure>
-          <img id="pxmPreview" class="preview" alt="PXM 미리보기" src="data:image/svg+xml;utf8,<?xml version='1.0'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'><rect width='800' height='450' rx='20' fill='%2312161f'/><rect x='28' y='28' width='744' height='394' rx='12' fill='%231b2030'/></svg>" />
+          <img id="pxmPreview" class="preview" alt="PXM 미리보기" src="assets/PXM_thumb.png" />
           <figcaption>PXM (Photoemission X-ray Microscopy)</figcaption>
         </figure>
       </article>
@@ -157,14 +158,14 @@
       <article class="card" data-id="fibsem" role="button" tabindex="0">
         <div class="uploader"><label class="btn" for="fibsemImg">대표 이미지</label><input id="fibsemImg" type="file" accept="image/*"></div>
         <figure>
-          <img id="fibsemPreview" class="preview" alt="FIB-SEM 미리보기" src="data:image/svg+xml;utf8,<?xml version='1.0'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'><rect width='800' height='450' rx='20' fill='%2312161f'/><rect x='28' y='28' width='744' height='394' rx='12' fill='%231b2030'/></svg>" />
+          <img id="fibsemPreview" class="preview" alt="FIB-SEM 미리보기" src="assets/FIB_thumb.png" />
           <figcaption>FIB-SEM Tomography (Focused Ion Beam-SEM)</figcaption>
         </figure>
       </article>
       <article class="card" data-id="eis" role="button" tabindex="0">
         <div class="uploader"><label class="btn" for="eisImg">대표 이미지</label><input id="eisImg" type="file" accept="image/*"></div>
         <figure>
-          <img id="eisPreview" class="preview" alt="EIS 미리보기" src="data:image/svg+xml;utf8,<?xml version='1.0'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 450'><rect width='800' height='450' rx='20' fill='%2312161f'/><rect x='28' y='28' width='744' height='394' rx='12' fill='%231b2030'/></svg>" />
+          <img id="eisPreview" class="preview" alt="EIS 미리보기" src="assets/EIS_thumb.png" />
           <figcaption>EIS (Electrochemical Impedance Spectroscopy)</figcaption>
         </figure>
       </article>
@@ -189,47 +190,49 @@
         <div class="bigpreview"><img id="modalImg" alt="선택한 데이터셋 미리보기"></div>
         <div class="attachments">
           <h3>첨부된 데이터셋</h3>
+
+          <!-- [REMOVED] 동적 업로드 UI (사용자 업로드 금지) -->
+          <!--
+          <div class="attach-actions">
+            <label class="btn" for="attachInput">파일 추가</label>
+            <input id="attachInput" type="file" multiple />
+          </div>
+          -->
+
+          <!-- [CHANGED] 정적 파일만 표시되는 영역 -->
           <div class="chips" id="attachList"><div class="empty">아직 첨부된 파일이 없습니다.</div></div>
-          <p class="empty" style="margin-top:8px">* 관리자가 <code>docs/datasets/</code> 폴더에 올린 파일만 보입니다.</p>
+          <p class="empty" style="margin-top:8px">* 관리자가 <code>docs/datasets/</code> 폴더에 올린 파일만 표시됩니다.</p>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- [REMOVED] 이미지 영구저장 helper & 호출부 (이번 페이지는 정적 썸네일 사용) -->
+  <!-- 공통 헬퍼 persistPreview 및 persistPreview(...) 호출을 제거했습니다. -->
+
+  <!-- 페이지 스크립트 -->
   <script>
     document.getElementById('y').textContent = new Date().getFullYear();
 
-    // 대표 이미지 미리보기 연결 (페이지 내 미리보기용)
-    function wirePreview(inputId, imgId){
-      const input = document.getElementById(inputId);
-      const img = document.getElementById(imgId);
-      input.addEventListener('change', ()=>{
-        const f = input.files && input.files[0];
-        if(!f) return; img.src = URL.createObjectURL(f); img.alt = f.name;
-      });
-    }
-    ['afm','tem','sem','tey','xps','xrd','stxm','pxm','fibsem','eis'].forEach(k=> wirePreview(k+'Img', k+'Preview'));
-
-    // ===== 정적 데이터셋 매핑 =====
+    // ===== [CHANGED] 정적 데이터셋 매핑 =====
     // docs/ 루트 기준 상대경로. 예: docs/datasets/AFM.xlsx
     // 필요에 따라 각 항목 files 배열에 파일을 추가하세요.
     const DATASETS = {
       afm:   { name: 'AFM (Atomic Force Microscopy)', files: [
-        { name: 'AFM.xlsx', url: 'datasets/AFM.xlsx' } // 예시: 이미 올려두신 파일
-        // { name: 'AFM_raw.csv', url: 'datasets/AFM_raw.csv' },
+        { name: 'AFM.xlsx', url: 'datasets/AFM.xlsx' } // 예시
       ]},
       tem:   { name: 'TEM (Transmission Electron Microscopy)', files: [] },
       sem:   { name: 'SEM (Scanning Electron Microscopy)', files: [] },
       tey:   { name: 'TEY (Total Electron Yield)', files: [] },
       xps:   { name: 'XPS (X-ray Photoelectron Spectroscopy)', files: [] },
-      xrd:   { name: 'XRD (X-ray Diffraction)', files: [] },
+      xrd:   { name: 'X-ray Diffraction (XRD)', files: [] },
       stxm:  { name: 'STXM (Scanning Transmission X-ray Microscopy)', files: [] },
       pxm:   { name: 'PXM (Photoemission X-ray Microscopy)', files: [] },
       fibsem:{ name: 'FIB-SEM Tomography (Focused Ion Beam-SEM)', files: [] },
       eis:   { name: 'EIS (Electrochemical Impedance Spectroscopy)', files: [] }
     };
 
-    // ===== Modal 로직 =====
+    // ===== Modal 로직 (업로드 관련 코드 삭제) =====
     const modal = document.getElementById('datasetModal');
     const closeBtn = document.getElementById('closeModal');
     const modalTitle = document.getElementById('modalTitle');
@@ -238,8 +241,8 @@
 
     function openModal(id){
       const cardImg = document.getElementById(id+'Preview');
-      modalImg.src = cardImg.src; modalImg.alt = DATASETS[id].name + ' 대표 이미지';
-      modalTitle.textContent = DATASETS[id].name;
+      modalImg.src = cardImg.src; modalImg.alt = (DATASETS[id]?.name || '데이터') + ' 대표 이미지';
+      modalTitle.textContent = DATASETS[id]?.name || '데이터셋';
       renderList(id);
       modal.hidden = false; modal.classList.add('open');
       closeBtn.focus();
@@ -254,7 +257,7 @@
     modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
     closeBtn.addEventListener('click', closeModal);
 
-    // 첨부 리스트 렌더링 (정적 파일만)
+    // [CHANGED] 정적 파일만 렌더링
     function renderList(id){
       const files = (DATASETS[id] && DATASETS[id].files) || [];
       attachList.innerHTML = '';
@@ -267,11 +270,11 @@
 
         const left = document.createElement('div');
         const a = document.createElement('a');
-        a.href = encodeURI(f.url); // 파일명에 공백/한글 대비
+        a.href = encodeURI(f.url);             // 공백/한글 파일명 대비
         a.download = f.name;
         a.textContent = f.name;
         a.rel = 'noopener';
-        a.target = '_blank'; // 새 탭 열기 (뷰어나 다운로드)
+        a.target = '_blank';                   // 새 탭 (브라우저가 미리보기 지원 시 열림)
         left.appendChild(a);
 
         const right = document.createElement('div');

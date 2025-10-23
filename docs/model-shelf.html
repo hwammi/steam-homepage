@@ -121,7 +121,6 @@
       <article class="card">
         <header>
           <h2>입력</h2>
-          <button class="btn ghost" id="loadSample" type="button">샘플 채우기</button>
         </header>
         <div class="body">
           <form id="shelfForm" novalidate>
@@ -151,7 +150,7 @@
               <button class="btn" type="button" id="addRow">＋ 행 추가</button>
               <button class="btn primary" id="runBtn" type="submit" disabled>실행</button>
               <button class="btn ghost" type="button" id="clearAll">초기화</button>
-              <span class="hint">최소 4개 이상의 측정 행이 필요합니다.</span>
+              <span class="hint">최소 1개 이상의 측정 행이 필요합니다.</span>
             </div>
           </form>
         </div>
@@ -255,14 +254,6 @@
       document.getElementById('stepsN').value = 50;
       list.innerHTML = ''; addRow(); updateState();
     });
-    document.getElementById('loadSample').addEventListener('click', ()=>{
-      document.getElementById('initCap').value = 2500;
-      document.getElementById('note').value = '예시 배치 A';
-      document.getElementById('stepsN').value = 60;
-      list.innerHTML = '';
-      addRow(3600, 2486); addRow(7200, 2471); addRow(10800, 2455);
-      updateState();
-    });
     addBtn.addEventListener('click', ()=> addRow());
 
     (function restore(){
@@ -303,7 +294,6 @@
 
       const rows = rowsRaw.map(r => ({ t: Number(r.t), cap: Number(r.cap) * UI_TO_MODEL }));
       const C0_UI = payload.initCap;
-      const C0 = (C0_UI != null ? C0_UI : 0) * UI_TO_MODEL;
 
       const last = rows[rows.length-1];
       const elapsedLast = last.t;

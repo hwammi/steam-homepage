@@ -320,94 +320,95 @@
     function buildFeatures(payload, featureCols, meta){
       const unknown = [];
   
-      // 1) 입력 정리 & 단위 변환 (mAh -> Ah)
+      // 1) 정렬/정제
       const rowsRaw = payload.rows
-        .filter(r => r.t != null && r.cap != null)
-        .sort((a,b) => a.t - b.t);
-      if (rowsRaw.length === 0) throw new Error('측정 행이 없습니다.');
+        .filter(r=> r.t!=null && r.cap!=null)
+        .sort((a,b)=> a.t - b.t);
+      if(rowsRaw.length===0) throw new Error('측정 행이 없습니다.');
   
-      const rows = rowsRaw.map(r => ({ t: Number(r.t), cap: Number(r.cap) * UI_TO_MODEL })); // cap: Ah
+      // 단위 변환: mAh -> Ah
+      const rowsAh = rowsRaw.map(r => ({ t: Number(r.t), cap: Number(r.cap) * UI_TO_MODEL }));
   
-      // 2) 시간 파생
-      const t0 = rows[0].t;
-      const lastIdx = rows.length - 1;
-      const last = rows[lastIdx];
-      const elapsed = rows.map(r => r.t - t0);         // 각 점의 elapsed_s
-      const elapsedLast = elapsed[lastIdx];            // 마지막 점의 elapsed_s
-      const diffs = rows.slice(1).map((r,i)=> Math.max(1, r.t - rows[i].t));
+      // 경과시간 기준(시작시각 빼기)
+      const t0_ui = Number(rowsRaw[0].t);                 // UI에서 받은 "첫 시각" (경과 기준 원점)
+      const lastIdx = rowsRaw.length - 1;
+      const elapsedLast = Math.max(0, Number(rowsRaw[lastIdx].t) - t0_ui);
+  
+      // dt_s: 관측 간격의 중앙값
+      const diffs = rowsRaw.slice(1).map((r,i)=> Math.max(1, Number(r.t) - Number(rowsRaw[i].t)));
       const dt_s = diffs.length ? median(diffs) : 3600;
   
-      // 3) 용량 파생
-      const C_last = last.cap; // Ah
-  
-      // 4) 라그 개수
+      // LAGS
       const LAGS = Number(meta?.LAGS ?? 0);
   
-      // 5) 기본 피처 맵
+      // 2) 라그 피처 (용량/경과시간 모두)
+      const capLag = [];
+      const elLag  = [];
+      for(let i=1;i<=LAGS;i++){
+        const idxAH = rowsAh.length - i;      // 마지막, 마지막-1, ...
+        const idxUI = rowsRaw.length - i;
+  
+        const cap_i = idxAH>=0 ? rowsAh[idxAH].cap : rowsAh[lastIdx].cap;  // Ah
+        const el_i  = idxUI>=0 ? Math.max(0, Number(rowsRaw[idxUI].t) - t0_ui) : elapsedLast;
+  
+        capLag.push(cap_i);
+        elLag.push(el_i);
+      }
+  
+      // 3) 기본 피처 맵
+      const lastAh = rowsAh[lastIdx].cap; // Ah
       const map = {
-        // 시간/진행도
         'elapsed_s': elapsedLast,
         'elapsed_s_log1p': Math.log1p(elapsedLast),
         'elapsed_s_sqrt': Math.sqrt(elapsedLast),
         'dt_s': dt_s,
-        // 용량
-        'cap_aged_est_Ah': C_last,
-        // 장치 업타임류/연령 피처: defaults로 채움
-        'uptime_s': meta?.defaults?.uptime_s ?? 0,
-        'uptime_ticks': meta?.defaults?.uptime_ticks ?? 0,
-        'age_temp': meta?.defaults?.age_temp ?? 25,
-        'age_soc': meta?.defaults?.age_soc ?? 50,
-        'age_chg_rate': meta?.defaults?.age_chg_rate ?? 0,
-        'age_dischg_rate': meta?.defaults?.age_dischg_rate ?? 0,
-        'age_profile': meta?.defaults?.age_profile ?? 0,
-        'age_type_1': meta?.defaults?.age_type_1 ?? 1
-        // (주의) 모델이 'timestamp_s'를 실제로 쓰지 않는다면 굳이 넣지 않아도 됩니다.
+        'cap_aged_est_Ah': lastAh,               // Ah
+        'timestamp_s': t0_ui + elapsedLast       // 절대시각처럼 쓰일 자리(학습에 안 썼다면 무시됨)
+        // 'cap_init_Ah': (payload.initCap??0)*UI_TO_MODEL, // 학습 시 썼다면 주석 해제
       };
-  
-      // 6) 라그 피처들 채우기
-      for (let i = 1; i <= LAGS; i++) {
-        const idx = rows.length - i;                // 마지막, 마지막-1, ...
-        const capLag = idx >= 0 ? rows[idx].cap : C_last;      // Ah
-        const eLag   = idx >= 0 ? elapsed[idx]    : elapsedLast; // s
-        map['cap_lag' + i] = capLag;
-        map['elapsed_lag' + i] = eLag;
+      for(let i=1;i<=LAGS;i++){
+        map['cap_lag'+i]     = capLag[i-1];     // Ah
+        map['elapsed_lag'+i] = elLag[i-1];      // s
       }
   
-      // 7) feature_cols 순서대로 벡터 만들기
-      const feats = new Float32Array(featureCols.length);
-      for (let i = 0; i < featureCols.length; i++) {
-        const name = featureCols[i];
-        let v = (name in map) ? map[name] : null;
-        if (v === null || v === undefined) {
-          // cap_lagN / elapsed_lagN 누락 보강
-          const m1 = name.match(/^cap_lag(\d+)$/);
-          const m2 = name.match(/^elapsed_lag(\d+)$/);
-          if (m1) v = map[name] ?? C_last;
-          if (m2) v = map[name] ?? elapsedLast;
+      // 4) meta.defaults가 있으면 주입 (age_temp, age_soc, uptime_s, age_type_1 등)
+      if (meta && meta.defaults) {
+        for (const k of Object.keys(meta.defaults)) {
+          if (!(k in map)) map[k] = meta.defaults[k];
         }
-        if (v === null || v === undefined) {
+      }
+  
+      // 보강: uptime_ticks가 필요한데 defaults에 없고 uptime_s만 있으면 환산해 넣기
+      if (featureCols.includes('uptime_ticks') && map['uptime_ticks']===undefined && map['uptime_s']!==undefined) {
+        // 학습에서 쓴 변환과 동일하게 맞추세요 (여기 값은 예시. 노트북에서 사용한 계수로 고정!)
+        const TICKS_TO_SEC = 0.01048576; // => ticks = sec / 0.01048576
+        map['uptime_ticks'] = map['uptime_s'] / TICKS_TO_SEC;
+      }
+  
+      // 보강: age_type_1이 필요하지만 값이 없으면 0 또는 1(데이터셋 상황에 맞게) — 우선 1을 가정
+      if (featureCols.includes('age_type_1') && map['age_type_1']===undefined) {
+        map['age_type_1'] = 1;
+      }
+  
+      // 5) 피처 벡터(학습 당시 feature_cols 순서대로)
+      const feats = new Float32Array(featureCols.length);
+      for(let i=0;i<featureCols.length;i++){
+        const name = featureCols[i];
+        let v = map[name];
+        if(v===null || v===undefined || !Number.isFinite(v)){
           v = 0;
           unknown.push(name);
         }
-        feats[i] = Number.isFinite(v) ? v : 0;
+        feats[i] = Number(v);
       }
   
       return {
         feats,
         dt_s,
-        t_next: t0 + elapsedLast + dt_s,
-        C0_UI: payload.initCap, // mAh (표시용)
+        t_next: t0_ui + elapsedLast + dt_s,
+        C0_UI: payload.initCap,   // mAh (보존율 계산용)
         unknown
       };
-    }
-    
-    let ortSession = null;
-    async function ensureSession(){
-      if(!('ort' in window)) throw new Error('onnxruntime-web(ort.min.js)를 로드하지 못했습니다. vendor/ort.min.js 경로를 확인하세요.');
-      if(ortSession) return ortSession;
-      ort.env.wasm.proxy = true;
-      ortSession = await ort.InferenceSession.create('models/shelf/shelf.onnx');
-      return ortSession;
     }
 
     // ===== 차트 (Canvas) =====

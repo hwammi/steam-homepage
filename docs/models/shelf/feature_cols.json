@@ -1,0 +1,20 @@
+[
+  "age_temp",
+  "age_soc",
+  "age_chg_rate",
+  "age_dischg_rate",
+  "age_profile",
+  "uptime_ticks",
+  "elapsed_s",
+  "elapsed_s_sqrt",
+  "elapsed_s_log1p",
+  "dt_s",
+  "uptime_s",
+  "age_type_1",
+  "cap_lag1",
+  "elapsed_lag1",
+  "cap_lag2",
+  "elapsed_lag2",
+  "cap_lag3",
+  "elapsed_lag3"
+]

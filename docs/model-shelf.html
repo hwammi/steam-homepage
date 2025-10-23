@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>충전도 기반 보관 수명 특성 예측 — STEAM Project Hub</title>
+  <meta name="description" content="충전도(SOC) 정보를 활용한 보관 수명 특성 예측 모델 — 입력 + ONNX 추론" />
+  <style>
+    :root{
+      --bg:#0b0d12; --fg:#e8ecf3; --muted:#a5afc2; --card:#12161f; --border:#1c2230;
+      --accent:#7c9cff; --accent2:#00d1b2; --shadow:0 10px 30px rgba(0,0,0,.35); --r:18px;
+      --ease:cubic-bezier(.16,1,.3,1);
+    }
+    @media (prefers-color-scheme: light){
+      :root{ --bg:#f7f9fc; --fg:#0d1117; --muted:#536075; --card:#ffffff; --border:#e6eaf1; --accent:#3b82f6; --accent2:#14b8a6; }
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",Arial}
+    a{color:inherit; text-decoration:none}
+    .container{width:min(100%,1100px); margin:0 auto; padding:24px 20px}
+
+    header{position:sticky; top:0; z-index:5; backdrop-filter:saturate(120%) blur(8px);
+      background:color-mix(in srgb,var(--bg),transparent 20%); border-bottom:1px solid var(--border)}
+    .nav{display:flex; align-items:center; justify-content:space-between; height:64px}
+    .brand{display:flex; align-items:center; gap:10px; font-weight:800}
+    .mark{width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,var(--accent),var(--accent2))}
+
+    .hero{padding:26px 0}
+    .hero h1{margin:0 0 8px; font-size:clamp(22px,4.2vw,34px); line-height:1.15}
+    .hero p{margin:0; color:var(--muted)}
+    .crumbs{display:flex; gap:8px; align-items:center; font-size:14px; color:var(--muted)}
+    .crumbs a{color:var(--muted)}
+
+    .grid{display:grid; gap:18px; grid-template-columns:1fr; align-items:start; margin-top:14px}
+    @media (min-width:980px){ .grid{ grid-template-columns: 1.1fr .9fr; } }
+
+    .card{background:var(--card); border:1px solid var(--border); border-radius:var(--r); box-shadow:var(--shadow); overflow:hidden}
+    .card header{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border)}
+    .card header h2{margin:0; font-size:18px}
+    .card .body{padding:16px}
+
+    .row{display:grid; gap:12px; grid-template-columns: 1fr}
+    @media (min-width:720px){ .row.cols-2{ grid-template-columns: 1fr 1fr; } }
+
+    .label{font-size:13px; color:var(--muted); margin-bottom:6px}
+    .field{position:relative}
+    .field input[type="number"],
+    .field input[type="text"],
+    .field button,
+    .field .fakeinput{
+      width:100%; padding:12px 14px; border-radius:12px; background:color-mix(in srgb,var(--card),transparent 8%);
+      border:1px solid var(--border); color:var(--fg); outline:none;
+      transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
+    }
+    input::placeholder{color:color-mix(in srgb,var(--muted),transparent 30%)}
+    input:focus{border-color:color-mix(in srgb,var(--accent),transparent 40%); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent),transparent 85%)}
+
+    .with-unit{position:relative}
+    .with-unit input{padding-right:64px}
+    .with-unit::after{content:attr(data-unit); position:absolute; right:12px; top:50%; transform:translateY(-50%);
+      color:var(--muted); font-size:12px; pointer-events:none}
+
+    .measure-head{display:grid; grid-template-columns:1fr 1fr 40px; gap:10px; margin-bottom:8px; color:var(--muted); font-size:12px}
+    .measure-list{display:grid; gap:10px}
+    .measure-item{display:grid; grid-template-columns:1fr 1fr 40px; gap:10px; align-items:center}
+    .remove-btn{display:inline-grid; place-items:center; height:44px; border-radius:12px; border:1px solid var(--border);
+      background:transparent; cursor:pointer; color:var(--muted)}
+    .remove-btn:hover{background:color-mix(in srgb,var(--card),transparent 12%); color:#ffb4b4; border-color:color-mix(in srgb,#ff6b6b,transparent 50%)}
+
+    .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
+    .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; border:1px solid var(--border); cursor:pointer}
+    .btn.primary{background:linear-gradient(180deg,var(--accent),#6b86ff); color:#fff; border-color:transparent}
+    .btn.ghost{background:transparent; color:var(--fg)}
+    .btn[disabled]{opacity:.6; cursor:not-allowed}
+
+    .muted{color:var(--muted)}
+    .hint{font-size:12px; color:var(--muted)}
+
+    .stats{display:grid; gap:10px; grid-template-columns:1fr; margin-bottom:10px}
+    @media (min-width:720px){ .stats{ grid-template-columns: repeat(3, 1fr); } }
+    .stat{border:1px solid var(--border); border-radius:12px; padding:12px}
+    .stat .k{font-size:12px; color:var(--muted)}
+    .stat .v{font-size:18px; font-weight:700}
+
+    table{width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border:1px solid var(--border); border-radius:12px}
+    thead th{font-size:12px; color:var(--muted); text-align:left; padding:10px}
+    tbody td{padding:10px; border-top:1px solid var(--border)}
+    tbody tr:hover{background:color-mix(in srgb,var(--card),transparent 12%)}
+
+    .output-disabled .body{opacity:.6; filter:grayscale(.1)}
+    .warn{font-size:12px; color:#ffb4b4}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <div class="brand"><span class="mark" aria-hidden="true"></span> STEAM Project Hub</div>
+      <nav aria-label="보조">
+        <a href="index.html" style="font-size:14px; color:var(--muted)">← 홈으로</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="crumbs"><a href="index.html">홈</a> › <span>머신러닝</span> › <span>충전도 기반 보관 수명 특성 예측</span></div>
+
+    <section class="hero">
+      <h1>충전도 기반 보관 수명 특성 예측 모델</h1>
+      <p class="muted">입력값을 추가하고 실행하면 내장된 ONNX 모델로 다음 시점 용량을 예측합니다.</p>
+    </section>
+
+    <section class="grid">
+      <!-- 입력 카드 -->
+      <article class="card">
+        <header>
+          <h2>입력</h2>
+          <button class="btn ghost" id="loadSample" type="button">샘플 채우기</button>
+        </header>
+        <div class="body">
+          <form id="shelfForm" novalidate>
+            <div class="row cols-2" style="margin-bottom:14px">
+              <div class="field with-unit" data-unit="mAh">
+                <div class="label">초기 방전 용량</div>
+                <input id="initCap" name="initCap" type="number" inputmode="decimal" step="any" min="0" placeholder="예: 2500" required />
+              </div>
+              <div class="field">
+                <div class="label">메모 (선택)</div>
+                <input id="note" name="note" type="text" placeholder="배치/시료/조건 등" />
+              </div>
+            </div>
+
+            <div class="label" style="margin-bottom:6px">경과 시간별 측정값</div>
+            <div class="measure-head"><span>경과 시간 (초)</span><span>그때의 방전 용량 (mAh)</span><span></span></div>
+            <div id="measureList" class="measure-list" aria-live="polite"></div>
+
+            <div class="actions">
+              <button class="btn" type="button" id="addRow">＋ 행 추가</button>
+              <button class="btn primary" id="runBtn" type="submit" disabled>실행</button>
+              <button class="btn ghost" type="button" id="clearAll">초기화</button>
+              <span class="hint">최소 1개 이상의 측정 행이 필요합니다.</span>
+            </div>
+          </form>
+        </div>
+      </article>
+
+      <!-- 출력 카드 -->
+      <article class="card" id="outCard">
+        <header>
+          <h2>출력</h2>
+          <div class="actions">
+            <button class="btn ghost" id="dlCsv" type="button" disabled>CSV 내보내기</button>
+          </div>
+        </header>
+        <div class="body">
+          <div class="stats" id="outStats">
+            <div class="stat"><div class="k">다음 시점 (초)</div><div class="v" id="statNextT">—</div></div>
+            <div class="stat"><div class="k">예측 용량 (mAh)</div><div class="v" id="statPred">—</div></div>
+            <div class="stat"><div class="k">예측 보존율</div><div class="v" id="statRet">—</div></div>
+          </div>
+          <div id="warnBox" class="warn"></div>
+          <table id="outTable" aria-label="예측 테이블">
+            <thead><tr><th>t (s)</th><th>capacity_hat (mAh)</th><th>retention_hat</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script src="vendor/ort.min.js"></script>
+
+  <script>
+    const MODEL_TO_UI = 1000;
+    const UI_TO_MODEL = 1 / MODEL_TO_UI;
+    const list = document.getElementById('measureList');
+    const addBtn = document.getElementById('addRow');
+    const runBtn = document.getElementById('runBtn');
+    const form = document.getElementById('shelfForm');
+    const dlCsvBtn = document.getElementById('dlCsv');
+
+    const LS_KEY = 'model:shelf:inputs';
+
+    function makeRow(t = '', cap = ''){
+      const wrap = document.createElement('div');
+      wrap.className = 'measure-item';
+      wrap.innerHTML = `
+        <div class="field with-unit" data-unit="초">
+          <input type="number" inputmode="numeric" min="0" step="1" placeholder="예: 3600" value="${t}" aria-label="경과 시간(초)" required />
+        </div>
+        <div class="field with-unit" data-unit="mAh">
+          <input type="number" inputmode="decimal" min="0" step="any" placeholder="예: 2480" value="${cap}" aria-label="그때의 방전 용량(mAh)" required />
+        </div>
+        <button class="remove-btn" type="button" aria-label="행 삭제">✕</button>
+      `;
+      wrap.querySelector('.remove-btn').addEventListener('click', ()=>{ wrap.remove(); updateState(); });
+      wrap.querySelectorAll('input').forEach(i=> i.addEventListener('input', updateState));
+      return wrap;
+    }
+
+    function addRow(t, cap){ list.appendChild(makeRow(t, cap)); updateState(); }
+
+    function getData(){
+      const initCap = parseFloat(document.getElementById('initCap').value);
+      const note = document.getElementById('note').value || '';
+      const rows = [...list.querySelectorAll('.measure-item')].map(item=>{
+        const [tEl, cEl] = item.querySelectorAll('input');
+        return { t: tEl.value === '' ? null : Number(tEl.value), cap: cEl.value === '' ? null : Number(cEl.value) };
+      });
+      return { initCap: isFinite(initCap) ? initCap : null, note, rows };
+    }
+
+    function isValid(){
+      const d = getData();
+      if(d.initCap === null || d.initCap < 0) return false;
+      if(d.rows.length === 0) return false;
+      for(const r of d.rows){ if(r.t === null || r.t < 0) return false; if(r.cap === null || r.cap < 0) return false; }
+      return true;
+    }
+
+    function updateState(){
+      runBtn.disabled = !isValid();
+      try{ localStorage.setItem(LS_KEY, JSON.stringify(getData())); }catch(e){}
+    }
+
+    document.getElementById('clearAll').addEventListener('click', ()=>{
+      document.getElementById('initCap').value = '';
+      document.getElementById('note').value = '';
+      list.innerHTML = ''; addRow(); updateState();
+    });
+
+    document.getElementById('loadSample').addEventListener('click', ()=>{
+      document.getElementById('initCap').value = 2500;
+      document.getElementById('note').value = '예시 배치 A';
+      list.innerHTML = '';
+      addRow(3600, 2486); addRow(7200, 2471); addRow(10800, 2455);
+      updateState();
+    });
+
+    addBtn.addEventListener('click', ()=> addRow());
+
+    (function restore(){
+      try{
+        const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+        if(saved){
+          if(saved.initCap != null) document.getElementById('initCap').value = saved.initCap;
+          if(saved.note) document.getElementById('note').value = saved.note;
+          list.innerHTML = '';
+          if(Array.isArray(saved.rows) && saved.rows.length){ for(const r of saved.rows){ addRow(r.t ?? '', r.cap ?? ''); } }
+          else { addRow(); }
+        } else { addRow(); }
+      }catch(e){ addRow(); }
+      updateState();
+    })();
+
+    const WARN = document.getElementById('warnBox');
+    function warn(msg){ WARN.textContent = msg || ''; }
+
+    async function loadArtifacts(){
+      const [fcols, meta] = await Promise.all([
+        fetch('models/shelf/feature_cols.json').then(r=>r.json()),
+        fetch('models/shelf/meta.json').then(r=>r.json())
+      ]);
+      return { featureCols: fcols, meta: meta || {} };
+    }
+
+    function median(arr){ const a=[...arr].sort((x,y)=>x-y); const n=a.length; return n? (n%2? a[(n-1)/2] : (a[n/2-1]+a[n/2])/2) : NaN; }
+
+    function buildFeatures(payload, featureCols, meta){
+      const unknown = [];
+      const rowsRaw = payload.rows.filter(r=> r.t!=null && r.cap!=null).sort((a,b)=> a.t - b.t);
+      if(rowsRaw.length===0) throw new Error('측정 행이 없습니다.');
+      const rows = rowsRaw.map(r => ({ t: Number(r.t), cap: Number(r.cap) * UI_TO_MODEL }));
+      const C0_UI = payload.initCap;
+      const t0 = rows[0].t;
+      const last = rows[rows.length-1];
+      const elapsedLast = Math.max(0, last.t - t0);
+      const diffs = rows.slice(1).map((r,i)=> Math.max(1, r.t - rows[i].t));
+      const dt_s = diffs.length ? median(diffs) : 3600;
+      const C_last = last.cap;
+      const LAGS = Number(meta?.LAGS ?? 0);
+      const lagVals = [];
+      for(let i=0;i<LAGS;i++){
+        const idx = rows.length - 1 - i;
+        lagVals.push(idx>=0? rows[idx].cap : C_last);
+      }
+      const map = {
+        'elapsed_s': elapsedLast,
+        'elapsed_s_log1p': Math.log1p(elapsedLast),
+        'elapsed_s_sqrt': Math.sqrt(elapsedLast),
+        'dt_s': dt_s,
+        'cap_aged_est_Ah': C_last,
+        'timestamp_s': t0 + elapsedLast,
+      };
+      for(let i=1;i<=LAGS;i++){ map['cap_lag'+i] = lagVals[i-1]; }
+      const feats = new Float32Array(featureCols.length);
+      for(let i=0;i<featureCols.length;i++){
+        const name = featureCols[i];
+        let v = map.hasOwnProperty(name) ? map[name] : null;
+        if(v===null || v===undefined){
+          const m = name.match(/^cap_lag(\d+)$/);
+          if(m){ v = map[name] ?? C_last; }
+        }
+        if(v===null || v===undefined){ v = 0; unknown.push(name); }
+        feats[i] = Number.isFinite(v)? v : 0;
+      }
+      return {
+        feats,
+        dt_s,
+        t_next: t0 + elapsedLast + dt_s,
+        C0_UI,
+        unknown
+      };
+    }
+
+    let ortSession = null;
+    async function ensureSession(){
+      if(!('ort' in window)) throw new Error('onnxruntime-web(ort.min.js)를 로드하지 못했습니다. vendor/ort.min.js 경로를 확인하세요.');
+      if(ortSession) return ortSession;
+      ort.env.wasm.proxy = true;
+      ortSession = await ort.InferenceSession.create('models/shelf/shelf.onnx');
+      return ortSession;
+    }
+
+    function toCSV(rows){
+      const cols = Object.keys(rows[0]||{});
+      const head = cols.join(',');
+      const body = rows.map(r=> cols.map(c=> String(r[c])).join(',')).join('\n');
+      return head + '\n' + body + '\n';
+    }
+
+    function download(name, text){
+      const blob = new Blob([text], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderOutput(yhat_Ah, ctx){
+      const pred_UI = yhat_Ah * MODEL_TO_UI;
+      const retention = ctx.C0_UI ? (pred_UI / ctx.C0_UI) : NaN;
+      const retentionAdj = retention * 0.1; // 임시 스케일
+
+      document.getElementById('statNextT').textContent = Math.round(ctx.t_next);
+      document.getElementById('statPred').textContent = pred_UI.toFixed(3);
+      document.getElementById('statRet').textContent =
+        Number.isFinite(retentionAdj) ? retentionAdj.toFixed(6) : '—';
+
+      warn(ctx.unknown && ctx.unknown.length
+        ? `알 수 없는 피처 ${ctx.unknown.length}개를 0으로 채웠습니다: ${ctx.unknown.slice(0,6).join(', ')}${ctx.unknown.length>6?' …':''}`
+        : '');
+
+      const tbody = document.querySelector('#outTable tbody');
+      tbody.innerHTML = '';
+      const row = {
+        t: Math.round(ctx.t_next),
+        capacity_hat: Number(pred_UI.toFixed(6)),
+        retention_hat: Number(retentionAdj.toFixed(8))
+      };
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${row.t}</td><td>${row.capacity_hat}</td><td>${row.retention_hat}</td>`;
+      tbody.appendChild(tr);
+
+      dlCsvBtn.disabled = false;
+      dlCsvBtn.onclick = ()=> download('shelf_pred.csv', toCSV([row]));
+    }
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      try{
+        warn('');
+        const payload = getData();
+        const { featureCols, meta } = await loadArtifacts();
+        const ctx = buildFeatures(payload, featureCols, meta);
+        const session = await ensureSession();
+
+        const inputName = session.inputNames[0];
+        const outputName = session.outputNames[0];
+        const tensor = new ort.Tensor('float32', ctx.feats, [1, ctx.feats.length]);
+        const results = await session.run({ [inputName]: tensor });
+        const yhat = results[outputName].data[0];
+
+        renderOutput(yhat, ctx);
+      }catch(err){
+        console.error(err);
+        warn('실행 중 오류: ' + (err && err.message ? err.message : err));
+        alert('실행 중 오류가 발생했습니다. 콘솔을 확인해 주세요.');
+      }
+    });
+  </script>
+</body>
+</html>

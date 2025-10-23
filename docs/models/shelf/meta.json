@@ -6,6 +6,8 @@
     "age_chg_rate": 0.0,
     "age_dischg_rate": 0.0,
     "age_profile": 0.0,
-    "uptime_s": 1688970557.2361405
+    "uptime_s": 1688970557.2361405,
+    "uptime_ticks": 161100000000.0,
+    "age_type_1": 1
   }
 }

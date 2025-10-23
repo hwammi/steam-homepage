@@ -282,106 +282,121 @@
     function warn(msg){ WARN.textContent = msg || ''; }
 
     async function loadArtifacts(){
-      const [fcols, meta] = await Promise.all([
+      const [fcols, metaRaw] = await Promise.all([
         fetch('models/shelf/feature_cols.json').then(r=>r.json()),
-        fetch('models/shelf/meta.json').then(r=>r.json())
+        fetch('models/shelf/meta.json').then(r=>r.json()).catch(()=>({}))
       ]);
-      return { featureCols: fcols, meta: meta || {} };
+  
+      // feature_cols에서 cap_lagN 패턴을 보고 N의 최댓값을 LAGS로 사용
+      const lagNs = fcols
+        .map(n => (n.match(/^cap_lag(\d+)$/) || [])[1])
+        .filter(Boolean)
+        .map(Number);
+      const LAGS = Math.max(0, ...(lagNs.length ? lagNs : [0]), metaRaw.LAGS || 0);
+  
+      // 기본값들 병합 (없으면 합리적인 디폴트)
+      const defaults = Object.assign({
+        age_temp: 25,
+        age_soc: 50,
+        age_chg_rate: 0,
+        age_dischg_rate: 0,
+        age_profile: 0,
+        uptime_s: 0,
+        uptime_ticks: null,     // 아래에서 보정
+        age_type_1: 1          // calendar aging이라면 1로 고정하는 게 자연스러움
+      }, metaRaw.defaults || {});
+  
+      // meta.json에 uptime_s만 있고 uptime_ticks가 없으면 변환
+      if (defaults.uptime_ticks == null && defaults.uptime_s != null) {
+        defaults.uptime_ticks = defaults.uptime_s / 0.01048576;
+      }
+  
+      return { featureCols: fcols, meta: { LAGS, defaults } };
     }
+    
     function median(arr){ const a=[...arr].sort((x,y)=>x-y); const n=a.length; return n? (n%2? a[(n-1)/2] : (a[n/2-1]+a[n/2])/2) : NaN; }
 
     // payload.rows는 mAh 단위 cap를 가짐
     function buildFeatures(payload, featureCols, meta){
       const unknown = [];
-      const defaults = (meta && meta.defaults) ? meta.defaults : {};
   
-      // 1) 정렬/정제 + 단위 변환(mAh -> Ah)
-      const rowsRaw = (payload.rows||[])
-        .filter(r=> r.t!=null && r.cap!=null)
-        .sort((a,b)=> a.t - b.t);
-      if(rowsRaw.length===0) throw new Error('측정 행이 없습니다.');
+      // 1) 입력 정리 & 단위 변환 (mAh -> Ah)
+      const rowsRaw = payload.rows
+        .filter(r => r.t != null && r.cap != null)
+        .sort((a,b) => a.t - b.t);
+      if (rowsRaw.length === 0) throw new Error('측정 행이 없습니다.');
   
-      const rows = rowsRaw.map(r => ({ t: Number(r.t), cap: Number(r.cap) * UI_TO_MODEL })); // Ah
-      const C0_UI = payload.initCap;                 // mAh(표시용)
-      const C0 = (C0_UI != null ? C0_UI : 0) * UI_TO_MODEL; // Ah(필요시)
+      const rows = rowsRaw.map(r => ({ t: Number(r.t), cap: Number(r.cap) * UI_TO_MODEL })); // cap: Ah
   
       // 2) 시간 파생
       const t0 = rows[0].t;
-      const last = rows[rows.length-1];
-      const elapsedLast = Math.max(0, last.t - t0);
+      const lastIdx = rows.length - 1;
+      const last = rows[lastIdx];
+      const elapsed = rows.map(r => r.t - t0);         // 각 점의 elapsed_s
+      const elapsedLast = elapsed[lastIdx];            // 마지막 점의 elapsed_s
       const diffs = rows.slice(1).map((r,i)=> Math.max(1, r.t - rows[i].t));
       const dt_s = diffs.length ? median(diffs) : 3600;
   
-      // 3) 래그 파생 (cap_lag*, elapsed_lag*)
+      // 3) 용량 파생
+      const C_last = last.cap; // Ah
+  
+      // 4) 라그 개수
       const LAGS = Number(meta?.LAGS ?? 0);
-      const capLagVals = [];
-      const elapsedLagVals = [];
-      for(let i=0;i<LAGS;i++){
-        const idx = rows.length - 1 - i;            // last, last-1, ...
-        const r = (idx>=0? rows[idx] : last);
-        capLagVals.push(r.cap);                     // Ah
-        elapsedLagVals.push(Math.max(0, r.t - t0)); // s
-      }
   
-      // 4) 외생/기타 피처(디폴트 채우기)
-      // - uptime_s: 없으면 현재 시퀀스의 "절대 시간" 느낌으로 t0+elapsedLast 사용
-      const uptime_s = (Number.isFinite(defaults.uptime_s) ? defaults.uptime_s : (t0 + elapsedLast));
-      // - uptime_ticks: defaults에 둘 다 있으면 비율로 유추, 없으면 1e7(윈도우 tick) 가정
-      const ticks_per_sec = (Number.isFinite(defaults.uptime_ticks) && Number.isFinite(defaults.uptime_s))
-        ? (defaults.uptime_ticks / Math.max(1e-9, defaults.uptime_s))
-        : 1e7;
-      const uptime_ticks = Number.isFinite(defaults.uptime_ticks) ? defaults.uptime_ticks : (uptime_s * ticks_per_sec);
-  
-      // - age_type_1: 달력열화(one-hot)라면 거의 항상 1이었을 가능성↑ → 기본 1
-      const age_type_1 = Number.isFinite(defaults.age_type_1) ? defaults.age_type_1 : 1;
-  
-      // - 온도/SoC/프로파일/충방전 rate 등: defaults에 있으면 채움, 없으면 보수적 기본값
-      const age_temp        = Number.isFinite(defaults.age_temp)        ? defaults.age_temp        : 25;   // 섭씨
-      const age_soc         = Number.isFinite(defaults.age_soc)         ? defaults.age_soc         : 0.5;  // 0~1
-      const age_chg_rate    = Number.isFinite(defaults.age_chg_rate)    ? defaults.age_chg_rate    : 0.0;
-      const age_dischg_rate = Number.isFinite(defaults.age_dischg_rate) ? defaults.age_dischg_rate : 0.0;
-      const age_profile     = Number.isFinite(defaults.age_profile)     ? defaults.age_profile     : 0.0;
-  
-      // 5) 피처 맵 (training 스키마에 맞춰 key를 정확히 맞춤)
+      // 5) 기본 피처 맵
       const map = {
-        // ── 외생(환경) 피처 ──
-        age_temp,
-        age_soc,
-        age_chg_rate,
-        age_dischg_rate,
-        age_profile,
-        uptime_ticks,
-        uptime_s,
-        age_type_1,
-  
-        // ── 시간/간격 ──
-        elapsed_s: elapsedLast,
-        elapsed_s_sqrt: Math.sqrt(elapsedLast),
-        elapsed_s_log1p: Math.log1p(elapsedLast),
-        dt_s
-        // 주의: feature_cols에 없는 키(예: timestamp_s, cap_aged_est_Ah)는 넣지 않아도 됩니다.
+        // 시간/진행도
+        'elapsed_s': elapsedLast,
+        'elapsed_s_log1p': Math.log1p(elapsedLast),
+        'elapsed_s_sqrt': Math.sqrt(elapsedLast),
+        'dt_s': dt_s,
+        // 용량
+        'cap_aged_est_Ah': C_last,
+        // 장치 업타임류/연령 피처: defaults로 채움
+        'uptime_s': meta?.defaults?.uptime_s ?? 0,
+        'uptime_ticks': meta?.defaults?.uptime_ticks ?? 0,
+        'age_temp': meta?.defaults?.age_temp ?? 25,
+        'age_soc': meta?.defaults?.age_soc ?? 50,
+        'age_chg_rate': meta?.defaults?.age_chg_rate ?? 0,
+        'age_dischg_rate': meta?.defaults?.age_dischg_rate ?? 0,
+        'age_profile': meta?.defaults?.age_profile ?? 0,
+        'age_type_1': meta?.defaults?.age_type_1 ?? 1
+        // (주의) 모델이 'timestamp_s'를 실제로 쓰지 않는다면 굳이 넣지 않아도 됩니다.
       };
   
-      // 래그들 추가 (cap_lag*, elapsed_lag*)
-      for(let i=1;i<=LAGS;i++){
-        map['cap_lag'+i]     = capLagVals[i-1];      // Ah
-        map['elapsed_lag'+i] = elapsedLagVals[i-1];  // s
+      // 6) 라그 피처들 채우기
+      for (let i = 1; i <= LAGS; i++) {
+        const idx = rows.length - i;                // 마지막, 마지막-1, ...
+        const capLag = idx >= 0 ? rows[idx].cap : C_last;      // Ah
+        const eLag   = idx >= 0 ? elapsed[idx]    : elapsedLast; // s
+        map['cap_lag' + i] = capLag;
+        map['elapsed_lag' + i] = eLag;
       }
   
-      // 6) feature_cols 순서대로 벡터 생성
+      // 7) feature_cols 순서대로 벡터 만들기
       const feats = new Float32Array(featureCols.length);
-      for(let i=0;i<featureCols.length;i++){
+      for (let i = 0; i < featureCols.length; i++) {
         const name = featureCols[i];
         let v = (name in map) ? map[name] : null;
-        if(v===null || v===undefined){ v = 0; unknown.push(name); }
-        feats[i] = Number.isFinite(v)? v : 0;
+        if (v === null || v === undefined) {
+          // cap_lagN / elapsed_lagN 누락 보강
+          const m1 = name.match(/^cap_lag(\d+)$/);
+          const m2 = name.match(/^elapsed_lag(\d+)$/);
+          if (m1) v = map[name] ?? C_last;
+          if (m2) v = map[name] ?? elapsedLast;
+        }
+        if (v === null || v === undefined) {
+          v = 0;
+          unknown.push(name);
+        }
+        feats[i] = Number.isFinite(v) ? v : 0;
       }
   
       return {
         feats,
         dt_s,
         t_next: t0 + elapsedLast + dt_s,
-        C0_UI,
+        C0_UI: payload.initCap, // mAh (표시용)
         unknown
       };
     }

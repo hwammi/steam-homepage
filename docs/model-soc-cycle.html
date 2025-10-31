@@ -3,8 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>상단 V–Q → 하단 용량 예측 — STEAM Project Hub</title>
-  <meta name="description" content="상단 전압 구간의 32개 Q와 dQ/dV 피크(세기·전압)를 입력받아 하단 전압 구간의 용량 곡선을 예측하여 Capacity–Voltage 그래프로 출력" />
+  <title>상구간 입력 → 하구간 Capacity 예측 (V–Q 전체곡선)</title>
   <meta name="theme-color" content="#f7f9fc" />
   <style>
     :root{
@@ -13,14 +12,12 @@
       --ease:cubic-bezier(.16,1,.3,1);
       color-scheme: light;
     }
-    *{box-sizing:border-box}
-    html,body{height:100%}
+    *{box-sizing:border-box} html,body{height:100%}
     body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",Arial}
     a{color:inherit;text-decoration:none}
     .container{width:min(100%,1100px);margin:0 auto;padding:24px 20px}
-
     header{position:sticky;top:0;z-index:5;backdrop-filter:saturate(120%) blur(8px);
-      background:color-mix(in srgb,var(--bg),transparent 20%);border-bottom:1px solid var(--border)}
+      background:color-mix(in srgb,var(--bg),transparent 20%); border-bottom:1px solid var(--border)}
     .nav{display:flex;align-items:center;justify-content:space-between;height:64px}
     .brand{display:flex;align-items:center;gap:10px;font-weight:800}
     .mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2))}
@@ -29,48 +26,38 @@
     .hero{padding:26px 0}
     .hero h1{margin:0 0 8px;font-size:clamp(22px,4.2vw,34px);line-height:1.15}
     .hero p{margin:0;color:var(--muted)}
-
     .grid{display:grid;gap:18px;grid-template-columns:1fr;align-items:start;margin-top:14px}
-    @media (min-width:980px){ .grid{grid-template-columns:1.05fr .95fr} }
-
+    @media (min-width:980px){ .grid{ grid-template-columns: 1.05fr .95fr; } }
     .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
     .card header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
     .card header h2{margin:0;font-size:18px}
     .card .body{padding:16px}
-
     .row{display:grid;gap:12px;grid-template-columns:1fr}
-    @media (min-width:720px){
-      .row.cols-2{grid-template-columns:1fr 1fr}
-      .row.cols-3{grid-template-columns:1fr 1fr 1fr}
-    }
+    @media (min-width:720px){ .row.cols-2{grid-template-columns:1fr 1fr} .row.cols-3{grid-template-columns:1fr 1fr 1fr} }
     .label{font-size:13px;color:var(--muted);margin-bottom:6px}
-    .field input,.field textarea,.field select,.field button{
-      width:100%;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--card),transparent 8%);
-      border:1px solid var(--border);color:var(--fg);outline:none;
-      transition:border-color .2s var(--ease), box-shadow .2s var(--ease)
+    input, textarea, select, button{
+      width:100%;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--card),transparent 8%);
+      border:1px solid var(--border);color:var(--fg);outline:none;transition:border-color .2s var(--ease),box-shadow .2s var(--ease)
     }
-    input::placeholder,textarea::placeholder{color:color-mix(in srgb,var(--muted),transparent 30%)}
-    input:focus,textarea:focus,select:focus{border-color:color-mix(in srgb,var(--accent),transparent 40%);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent),transparent 85%)}
-
-    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    input::placeholder, textarea::placeholder{color:color-mix(in srgb,var(--muted),transparent 30%)}
+    input:focus, textarea:focus, select:focus{border-color:color-mix(in srgb,var(--accent),transparent 40%);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent),transparent 85%)}
     .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid var(--border);cursor:pointer}
     .btn.primary{background:linear-gradient(180deg,var(--accent),#6b86ff);color:#fff;border-color:transparent}
-    .btn.ghost{background:transparent;color:var(--fg)}
+    .btn.ghost{background:transparent}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
     .hint{font-size:12px;color:var(--muted)}
     .warn{font-size:12px;color:#d92b2b;min-height:1.2em}
-
-    .chart-wrap{border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px}
-    canvas{display:block;width:100%;height:300px}
-
-    .legend{display:flex;gap:10px;align-items:center;margin:8px 0 12px}
-    .lg{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
-    .dot{width:12px;height:12px;border-radius:3px;background:#3b82f6;border:1px solid color-mix(in srgb,#000,transparent 80%)}
-    .dot.gray{background:#9aa5b1}
-
     table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--border);border-radius:12px;overflow:hidden}
-    thead th{font-size:12px;color:var(--muted);text-align:left;padding:10px}
-    tbody td{padding:10px;border-top:1px solid var(--border)}
-    tbody tr:hover{background:color-mix(in srgb,var(--card),transparent 12%)}
+    thead th{font-size:12px;color:var(--muted);text-align:left;padding:8px}
+    tbody td{padding:8px;border-top:1px solid var(--border)}
+    .chart-wrap{border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px}
+    canvas{display:block;width:100%;height:360px}
+    .stats{display:grid;gap:10px;grid-template-columns:1fr}
+    @media (min-width:720px){ .stats{grid-template-columns:repeat(3,1fr)} }
+    .stat{border:1px solid var(--border);border-radius:12px;padding:12px}
+    .stat .k{font-size:12px;color:var(--muted)} .stat .v{font-size:18px;font-weight:700}
+    .flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,"Liberation Mono","Courier New",monospace}
   </style>
 </head>
 <body>
@@ -84,275 +71,360 @@
 </header>
 
 <main class="container">
-  <div class="crumbs"><a href="index.html">홈</a> › <span>머신러닝</span> › <span>상단→하단 용량 예측</span></div>
-
+  <div class="crumbs"><a href="index.html">홈</a> › <span>머신러닝</span> › <span>상구간→하구간 Capacity 예측</span></div>
   <section class="hero">
-    <h1>상단 V–Q 입력 → 하단 용량 곡선 예측</h1>
-    <p class="muted">입력: 4.20→3.89V 구간의 Q 32개(전압 내림차순) + dQ/dV 피크(세기, 전압). 출력: 3.88→2.50V 구간의 예측 Q를 병합한 Capacity–Voltage 곡선.</p>
+    <h1>상구간 입력 → 하구간 Capacity 예측</h1>
+    <p class="muted">상구간 Q(4.20→3.89 V) 32점 + dQ/dV(4.20~3.80 V 임의 샘플)로 3rd 피크를 추출해, ONNX(34차)로 하구간 Capacity를 예측합니다. X=Capacity(Ah), Y=Voltage(V)로 전체 곡선을 그립니다.</p>
   </section>
 
   <section class="grid">
-    <!-- 입력 카드 -->
+    <!-- 좌: 입력 카드들 -->
     <article class="card">
       <header><h2>입력</h2></header>
       <div class="body">
-        <div class="row">
-          <div class="field">
-            <div class="label">상단 Q 32개 (4.20 → 3.89 V 순서, 쉼표/공백/개행 구분 허용)</div>
-            <textarea id="Q32" rows="5" placeholder="예) 0.00, 0.03, 0.07, 0.10, ... (총 32개)"></textarea>
-            <div class="hint">전압 격자: 4.20, 4.19, …, 3.90, 3.89 (32개)</div>
-          </div>
+        <!-- Q 32점 -->
+        <div class="label"><strong>① 상구간 Q 32점</strong> (전압 고정: 4.20→3.89 V, 0.01 V step / 단위: Ah)</div>
+        <div class="flex">
+          <button class="btn" id="fillDemoQ">예시로 채우기</button>
+          <button class="btn ghost" id="clearQ">초기화</button>
+          <span class="hint">빈칸 없이 32개 모두 입력</span>
+        </div>
+        <div style="margin:10px 0 14px; max-height:280px; overflow:auto; border:1px solid var(--border); border-radius:12px;">
+          <table>
+            <thead><tr><th>Voltage (V)</th><th>Capacity Q (Ah)</th></tr></thead>
+            <tbody id="qTable"></tbody>
+          </table>
         </div>
 
+        <!-- dQ/dV 업로드/붙여넣기 -->
+        <div class="label" style="margin-top:6px"><strong>② dQ/dV 샘플</strong> (권장 범위: 4.20~3.80 V / CSV 업로드 또는 텍스트 붙여넣기)</div>
         <div class="row cols-2">
-          <div class="field">
-            <div class="label">dQ/dV Peak Intensity (세기)</div>
-            <input id="peakI" type="number" step="any" placeholder="예: 0.12" />
+          <div>
+            <div class="label">CSV 업로드 (헤더 예: <span class="mono">V,dQdV</span>)</div>
+            <input type="file" id="dqdvFile" accept=".csv,text/csv" />
           </div>
-          <div class="field">
-            <div class="label">dQ/dV Peak Voltage (V)</div>
-            <input id="peakV" type="number" step="any" placeholder="예: 3.95" />
+          <div>
+            <div class="label">텍스트 붙여넣기 (쉼표/스페이스 구분 가능, 행당 "V dQdV")</div>
+            <textarea id="dqdvText" rows="6" placeholder="예)\n4.20, 0.85\n4.19, 0.83\n..."></textarea>
           </div>
         </div>
-
         <div class="actions">
-          <button class="btn primary" id="runBtn" type="button">예측 실행</button>
-          <button class="btn" id="demoBtn" type="button">데모 채우기</button>
-          <button class="btn" id="clearBtn" type="button">초기화</button>
-          <span class="hint">모델 경로가 맞는지 확인: <code>PATHS.LOWER</code></span>
+          <button class="btn" id="fillDemoDqdv">dQ/dV 예시로 채우기</button>
+          <button class="btn ghost" id="clearDqdv">초기화</button>
+          <span class="hint">내부에서 스무딩 & 피크검출 → 3rd 피크 추출</span>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:16px 0" />
+        <div class="actions">
+          <button class="btn primary" id="runBtn">예측 실행</button>
+          <span class="hint">모델 경로: <span class="mono">models/soc-cycle/lowercap_fused.onnx</span></span>
         </div>
         <div id="warn" class="warn"></div>
+
+        <div class="row cols-2" style="margin-top:10px">
+          <div class="stat"><div class="k">추출된 dQ/dV 피크(강도)</div><div class="v" id="pkI">—</div></div>
+          <div class="stat"><div class="k">추출된 dQ/dV 피크(전압)</div><div class="v" id="pkV">—</div></div>
+        </div>
       </div>
     </article>
 
-    <!-- 출력 카드 -->
-    <article class="card">
+    <!-- 우: 출력 -->
+    <article class="card" id="outCard">
       <header><h2>출력</h2></header>
       <div class="body">
-        <div class="legend">
-          <span class="lg"><span class="dot gray"></span> 상단(입력) 구간 — 4.20→3.89V</span>
-          <span class="lg"><span class="dot"></span> 하단(예측) 구간 — 3.88→2.50V</span>
+        <div class="chart-wrap">
+          <canvas id="chart" width="900" height="360" aria-label="V–Q 예측 곡선"></canvas>
         </div>
-        <div class="chart-wrap"><canvas id="chart" width="900" height="300" aria-label="Capacity–Voltage 차트"></canvas></div>
-        <table id="tbl" aria-label="예측 테이블">
-          <thead><tr><th>Voltage (V)</th><th>Capacity (Ah)</th><th>구간</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="stats">
+          <div class="stat"><div class="k">상구간 Q 최댓값(Ah)</div><div class="v" id="qMax">—</div></div>
+          <div class="stat"><div class="k">하구간 예측 길이(pts)</div><div class="v" id="lowLen">—</div></div>
+          <div class="stat"><div class="k">전압 범위(V)</div><div class="v" id="vRange">—</div></div>
+        </div>
+        <div class="hint">그래프: X=Capacity(Ah), Y=Voltage(V). 파란선=상구간 입력, 초록선=하구간 예측.</div>
       </div>
     </article>
   </section>
 </main>
 
-<!-- onnxruntime-web -->
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 <script>
-/* ===== 모델 파일 경로를 배포 구조에 맞게 수정 ===== */
-const PATHS = {
-  LOWER: "models/soc-cycle/lowercap_fused.onnx"
-};
-/* =============================================== */
+/* ===== 모델 경로 ===== */
+const MODEL_PATH = "models/soc-cycle/lowercap_fused.onnx";
 
-const $ = (id)=>document.getElementById(id);
-const q = (sel)=>document.querySelector(sel);
-const warn = (m)=> $("warn").textContent = m || "";
+/* ===== 전역 ===== */
+const $ = id => document.getElementById(id);
+const q = sel => document.querySelector(sel);
+const warn = m => $("warn").textContent = m || "";
 
-// 전압 격자 생성 (내림차순)
-const UPPER_V = arange(4.20, 3.89, -0.01); // 32개
-const LOWER_V = arange(3.88, 2.50, -0.01); // 139개
-
+/* 상구간 그리드: 4.20 → 3.89 V, 0.01 step (총 32점) */
+const UPPER_VS = Array.from({length:32}, (_,i)=> +(4.20 - 0.01*i).toFixed(2));
+const LOWER_START_V = 3.88; // 하구간 시작 전압(상구간 끝보다 0.01 낮은 지점)
+const LOWER_STEP = 0.01;    // 하향 step
 let session = null;
 
-async function ensureSession(){
-  if(session) return;
-  ort.env.wasm.numThreads = 3;
-  ort.env.wasm.proxy = false;
-  session = await ort.InferenceSession.create(PATHS.LOWER, {executionProviders:["wasm"]});
+/* ===== UI: Q 테이블 생성 ===== */
+function buildQTable(){
+  const tb = $("qTable"); tb.innerHTML = "";
+  UPPER_VS.forEach((v,i)=>{
+    const tr = document.createElement("tr");
+    const tdV = document.createElement("td");
+    tdV.textContent = v.toFixed(2);
+    const tdQ = document.createElement("td");
+    const inp = document.createElement("input");
+    inp.type = "number"; inp.step = "any"; inp.placeholder = "Ah";
+    inp.id = `q_${i}`;
+    tdQ.appendChild(inp);
+    tr.appendChild(tdV); tr.appendChild(tdQ);
+    tb.appendChild(tr);
+  });
+}
+buildQTable();
+
+/* ===== 데모 채우기 ===== */
+$("fillDemoQ").addEventListener("click", ()=>{
+  // 간단한 완만 감소 프로파일(예시)
+  const base = 2.10;
+  for(let i=0;i<UPPER_VS.length;i++){
+    const val = base - 0.002*i - 0.0005*Math.sin(i/3);
+    $("q_"+i).value = val.toFixed(4);
+  }
+});
+$("clearQ").addEventListener("click", ()=>{
+  for(let i=0;i<UPPER_VS.length;i++) $("q_"+i).value = "";
+});
+
+/* ===== dQ/dV 입력 처리 ===== */
+$("fillDemoDqdv").addEventListener("click", ()=>{
+  // 4.20→3.80 사이 임의 샘플(예시): 대략 0.02V 간격
+  const rows = [];
+  for(let k=0;k<=20;k++){
+    const V = 4.20 - 0.02*k;
+    const dqdv = 0.8*Math.exp(-((V-4.05)*(V-4.05))/0.01) + 0.12*Math.random();
+    rows.push(`${V.toFixed(2)}, ${dqdv.toFixed(4)}`);
+  }
+  $("dqdvText").value = rows.join("\n");
+});
+$("clearDqdv").addEventListener("click", ()=>{
+  $("dqdvText").value = "";
+  $("dqdvFile").value = "";
+});
+
+/* CSV 업로드 → 텍스트로 로드 */
+$("dqdvFile").addEventListener("change", async ()=>{
+  const f = $("dqdvFile").files?.[0]; if(!f) return;
+  const text = await f.text();
+  $("dqdvText").value = text.trim();
+});
+
+/* ===== 파서/스무딩/피크검출 ===== */
+function parseDqdvText(){
+  let text = $("dqdvText").value.trim();
+  const out = [];
+  if(!text) return out;
+  // CSV 헤더 지원(V,dQdV), 또는 "V dQdV"
+  const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  let start = 0;
+  // 헤더 감지(한글/영문 모두 가능하게 V/dQ 키 포함 검사)
+  if(lines[0].toLowerCase().includes("v") && (lines[0].toLowerCase().includes("dq") || lines[0].toLowerCase().includes("dqdv")))
+    start = 1;
+  for(let i=start;i<lines.length;i++){
+    const parts = lines[i].split(/[, \t;]+/).map(s=>s.trim()).filter(Boolean);
+    if(parts.length<2) continue;
+    const V = parseFloat(parts[0]);
+    const D = parseFloat(parts[1]);
+    if(Number.isFinite(V) && Number.isFinite(D)) out.push({V, D});
+  }
+  // 전압 내림차순 정렬(4.20→3.80)
+  out.sort((a,b)=> b.V - a.V);
+  return out;
 }
 
-function arange(start, stop, step){
-  const arr=[]; // 포함형
-  const eps = 1e-9;
-  if(step === 0) return arr;
-  if(step > 0){
-    for(let v=start; v<=stop+eps; v+=step) arr.push(round4(v));
-  }else{
-    for(let v=start; v>=stop-eps; v+=step) arr.push(round4(v));
+function smoothMovingAvg(arr, win=7){
+  if(win<3 || win%2===0) win=7;
+  const half = Math.floor(win/2);
+  const out = new Array(arr.length).fill(0);
+  for(let i=0;i<arr.length;i++){
+    let s=0,c=0;
+    for(let j=i-half;j<=i+half;j++){
+      if(j>=0 && j<arr.length){ s+=arr[j]; c++; }
+    }
+    out[i]= s/c;
+  }
+  return out;
+}
+
+/* 간단 prominence 기반 피크 탐색 */
+function findPeaks(x, y, win=5, minProm=0.02){
+  const peaks = [];
+  for(let i=1;i<y.length-1;i++){
+    if(y[i-1] < y[i] && y[i] > y[i+1]){
+      const l0 = Math.max(0, i-win), r0 = Math.min(y.length-1, i+win);
+      let leftMin = Infinity, rightMin = Infinity;
+      for(let k=l0;k<i;k++) leftMin = Math.min(leftMin, y[k]);
+      for(let k=i+1;k<=r0;k++) rightMin = Math.min(rightMin, y[k]);
+      const prom = y[i] - Math.max(leftMin, rightMin);
+      if(prom >= minProm){
+        peaks.push({idx:i, V:x[i], mag:y[i], prom});
+      }
+    }
+  }
+  return peaks;
+}
+
+/* dQ/dV → 3rd 피크(전압 내림차순) 선택. 없으면 prominence 최대 */
+function extractThirdPeak(dqdvRows){
+  if(dqdvRows.length<5) return null;
+  const V = dqdvRows.map(r=>r.V);
+  const D = dqdvRows.map(r=>r.D);
+  const Ds = smoothMovingAvg(D, 7);
+  const peaks = findPeaks(V, Ds, 6, 0.01);
+  if(peaks.length===0){
+    // fallback: 전체 최대점(스무딩 후)
+    let mi = 0; for(let i=1;i<Ds.length;i++) if(Ds[i]>Ds[mi]) mi=i;
+    return {peakI: Ds[mi], peakV: V[mi], debug:{mode:"global-max"}};
+  }
+  // 전압 내림차순 기준(이미 V는 내림차순), 좌→우가 고→저
+  const sortedByPos = peaks.sort((a,b)=> a.idx - b.idx);
+  const third = sortedByPos[2] || null;
+  if(third) return {peakI: third.mag, peakV: third.V, debug:{mode:"3rd-desc"}};
+  // 3개 미만이면 prominence 최대
+  const byProm = peaks.toSorted ? peaks.toSorted((a,b)=> b.prom - a.prom) : [...peaks].sort((a,b)=> b.prom - a.prom);
+  const top = byProm[0];
+  return {peakI: top.mag, peakV: top.V, debug:{mode:"max-prom"}};
+}
+
+/* ===== ONNX ===== */
+async function ensureSession(){
+  if(session) return session;
+  ort.env.wasm.numThreads = 3;
+  ort.env.wasm.proxy = false;
+  session = await ort.InferenceSession.create(MODEL_PATH, { executionProviders:["wasm"] });
+  return session;
+}
+
+/* ===== 유틸: 입력 수집/검증 ===== */
+function readUpperQ(){
+  const arr = [];
+  for(let i=0;i<UPPER_VS.length;i++){
+    const v = parseFloat($("q_"+i).value);
+    if(!Number.isFinite(v)) return null;
+    arr.push(v);
   }
   return arr;
 }
-function round4(x){ return Math.round(x*10000)/10000; }
 
-function parseNumbers(text){
-  return text
-    .split(/[\s,;]+/)
-    .map(t=>t.trim())
-    .filter(t=>t.length>0)
-    .map(Number)
-    .filter(v=>Number.isFinite(v));
+/* ===== 하구간 전압 그리드(모델 출력 길이에 맞춤) ===== */
+function makeLowerVoltages(n){
+  return Array.from({length:n}, (_,i)=> +(LOWER_START_V - i*LOWER_STEP).toFixed(2));
 }
 
-function validateInputs(q32, peakI, peakV){
-  if(q32.length !== 32){
-    return "상단 Q는 정확히 32개여야 합니다. (4.20→3.89V 순서)";
-  }
-  if(!Number.isFinite(peakI) || !Number.isFinite(peakV)){
-    return "dQ/dV 피크의 세기와 전압을 모두 입력하세요.";
-  }
-  // 피크 전압 대략적 범위 체크 (상단 구간 안)
-  if(peakV > 4.21 || peakV < 3.80){
-    return "피크 전압은 대략 3.80~4.20V 범위여야 합니다.";
-  }
-  return null;
-}
-
-function makeInputTensor(q32, peakI, peakV){
-  // 주의: ONNX가 기대하는 순서 — 32개 Q 뒤에 Peak Intensity, Voltage
-  const feats = Float32Array.from([...q32, peakI, peakV]);
-  return new ort.Tensor('float32', feats, [1, 34]);
-}
-
-function drawCapacityVoltage(upperPairs, lowerPairs){
-  const c = $("chart"), ctx=c.getContext("2d"), dpr = window.devicePixelRatio||1;
-  const W = c.clientWidth, H = c.clientHeight;
-  c.width = W*dpr; c.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+/* ===== 그리기(X=Q, Y=V) ===== */
+function drawQV(upperV, upperQ, lowerV, lowerQ){
+  const c=$("chart"), ctx=c.getContext("2d"), dpr=window.devicePixelRatio||1;
+  const W=c.clientWidth, H=c.clientHeight; c.width=W*dpr; c.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,W,H);
+  if((upperV.length===0||upperQ.length===0) && (lowerV.length===0||lowerQ.length===0)) return;
 
-  const L=54,R=14,T=14,B=38, w=W-L-R, h=H-T-B;
+  // 전체 범위
+  const allQ = [...upperQ, ...lowerQ].filter(Number.isFinite);
+  const allV = [...upperV, ...lowerV].filter(Number.isFinite);
+  const qMin = Math.min(...allQ), qMax = Math.max(...allQ);
+  const vMin = Math.min(...allV), vMax = Math.max(...allV);
+  const L=54,R=16,T=14,B=32, w=W-L-R, h=H-T-B;
 
-  const allPairs = [...upperPairs, ...lowerPairs];
-  if(allPairs.length===0) return;
-
-  const xs = allPairs.map(p=>p.x);
-  const ys = allPairs.map(p=>p.y);
-
-  const xMin = Math.min(...xs), xMax = Math.max(...xs);
-  // Voltage 축은 위로 갈수록 전압↑
-  const yMin = Math.min(...ys), yMax = Math.max(...ys);
-
-  const xTo = x => L + (w * (x - xMin) / Math.max(1e-12, (xMax - xMin)));
-  const yTo = y => T + h - (h * (y - yMin) / Math.max(1e-12, (yMax - yMin)));
+  const x = (q)=> L + ( (q - qMin) / Math.max(1e-12, (qMax-qMin)) ) * w;
+  const y = (v)=> T + (1 - ( (v - vMin) / Math.max(1e-12,(vMax-vMin)) )) * h; // V 높은게 위쪽
 
   // 축
-  ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--border') || '#e6eaf1';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(L,T); ctx.lineTo(L,T+h); ctx.lineTo(L+w,T+h);
-  ctx.stroke();
+  ctx.strokeStyle=getComputedStyle(document.body).getPropertyValue('--border')||'#e6eaf1';
+  ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(L,T); ctx.lineTo(L,T+h); ctx.lineTo(L+w,T+h); ctx.stroke();
 
-  // 눈금/라벨 (X 용량)
-  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted') || '#536075';
-  ctx.font = '12px system-ui';
-  const xTicks = 5;
-  for(let i=0;i<=xTicks;i++){
-    const xv = xMin + (i*(xMax-xMin)/xTicks);
-    const xx = xTo(xv), yy = T+h;
-    ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx,yy+5); ctx.stroke();
-    ctx.fillText(xv.toFixed(2), xx-10, yy+18);
-  }
-  // Y 전압 눈금
-  const yTicks = 5;
-  for(let i=0;i<=yTicks;i++){
-    const yv = yMin + (i*(yMax-yMin)/yTicks);
-    const xx = L, yy = yTo(yv);
-    ctx.beginPath(); ctx.moveTo(xx-5,yy); ctx.lineTo(xx,yy); ctx.stroke();
-    ctx.fillText(yv.toFixed(2), xx-42, yy+4);
-  }
-  // 축 라벨
-  ctx.save();
-  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted') || '#536075';
-  ctx.font = '12px system-ui';
-  ctx.fillText('Capacity (Ah)', L + w/2 - 40, T+h+30);
-  ctx.translate(16, T + h/2); ctx.rotate(-Math.PI/2);
-  ctx.fillText('Voltage (V)', -36, 0);
-  ctx.restore();
-
-  // 상단(입력) 구간: 회색선
-  if(upperPairs.length>0){
-    ctx.strokeStyle = '#9aa5b1'; ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(xTo(upperPairs[0].x), yTo(upperPairs[0].y));
-    for(let i=1;i<upperPairs.length;i++){
-      ctx.lineTo(xTo(upperPairs[i].x), yTo(upperPairs[i].y));
+  // 틱(간단)
+  ctx.fillStyle = '#8a93a5'; ctx.font = '12px system-ui';
+  const drawTicks = ()=>{
+    // Q축 4개
+    for(let i=0;i<=4;i++){
+      const tq = qMin + (qMax-qMin)*i/4;
+      const tx = x(tq); ctx.fillText(tq.toFixed(2), tx-10, T+h+18);
+      ctx.strokeStyle='rgba(0,0,0,0.06)'; ctx.beginPath(); ctx.moveTo(tx,T); ctx.lineTo(tx,T+h); ctx.stroke();
     }
-    ctx.stroke();
-  }
-
-  // 하단(예측) 구간: 파란선
-  if(lowerPairs.length>0){
-    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(xTo(lowerPairs[0].x), yTo(lowerPairs[0].y));
-    for(let i=1;i<lowerPairs.length;i++){
-      ctx.lineTo(xTo(lowerPairs[i].x), yTo(lowerPairs[i].y));
+    // V축 4개
+    for(let i=0;i<=4;i++){
+      const tv = vMin + (vMax-vMin)*i/4;
+      const ty = y(tv); ctx.fillText(tv.toFixed(2), 6, ty+4);
+      ctx.strokeStyle='rgba(0,0,0,0.06)'; ctx.beginPath(); ctx.moveTo(L,ty); ctx.lineTo(L+w,ty); ctx.stroke();
     }
-    ctx.stroke();
-  }
-}
-
-function fillTable(upperPairs, lowerPairs){
-  const tb = q('#tbl tbody'); tb.innerHTML = '';
-  const addRow = (V,Q,seg)=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${V.toFixed(2)}</td><td>${Q.toFixed(6)}</td><td>${seg}</td>`;
-    tb.appendChild(tr);
   };
-  // 상단 먼저(전압 내림차순)
-  for(let i=0;i<upperPairs.length;i++){
-    addRow(upperPairs[i].y, upperPairs[i].x, '상단');
+  drawTicks();
+
+  // 상구간(파랑)
+  if(upperQ.length){
+    ctx.strokeStyle='#3b82f6'; ctx.lineWidth=2; ctx.beginPath();
+    ctx.moveTo(x(upperQ[0]), y(upperV[0]));
+    for(let i=1;i<upperQ.length;i++) ctx.lineTo(x(upperQ[i]), y(upperV[i]));
+    ctx.stroke();
   }
-  // 하단(전압 내림차순)
-  for(let i=0;i<lowerPairs.length;i++){
-    addRow(lowerPairs[i].y, lowerPairs[i].x, '하단(예측)');
+  // 하구간(초록)
+  if(lowerQ.length){
+    ctx.strokeStyle='#16a34a'; ctx.lineWidth=2; ctx.beginPath();
+    ctx.moveTo(x(lowerQ[0]), y(lowerV[0]));
+    for(let i=1;i<lowerQ.length;i++) ctx.lineTo(x(lowerQ[i]), y(lowerV[i]));
+    ctx.stroke();
   }
 }
 
-async function run(){
+/* ===== 실행 ===== */
+$("runBtn").addEventListener("click", async ()=>{
   try{
-    warn(""); await ensureSession();
+    warn("");
+    // 1) 상구간 Q 32점
+    const upperQ = readUpperQ();
+    if(!upperQ){ warn("상구간 Q 32개를 모두 숫자로 입력해주세요."); return; }
 
-    const q32 = parseNumbers($("Q32").value);
-    const peakI = +$("peakI").value;
-    const peakV = +$("peakV").value;
+    // 2) dQ/dV 파싱 → 피크 추출
+    const rows = parseDqdvText();
+    if(rows.length < 10){ warn("dQ/dV 데이터가 너무 적습니다. 4.20~3.80 V 구간을 충분히 포함해 주세요."); return; }
+    const peak = extractThirdPeak(rows);
+    if(!peak){ warn("dQ/dV에서 피크를 추출하지 못했습니다. 데이터 범위를 확인하세요."); return; }
+    $("pkI").textContent = peak.peakI.toFixed(6);
+    $("pkV").textContent = peak.peakV.toFixed(4);
 
-    const err = validateInputs(q32, peakI, peakV);
-    if(err){ warn(err); return; }
+    // 3) ONNX 실행(입력 34차: Q(32) + [peakI, peakV])
+    const sess = await ensureSession();
+    const inputName = sess.inputNames[0];
 
-    // ONNX 추론
-    const inputName = session.inputNames[0];
-    const feeds = {};
-    feeds[inputName] = makeInputTensor(q32, peakI, peakV);
-    const out = await session.run(feeds);
-    const outputName = session.outputNames[0];
-    const pred = Array.from(out[outputName].data); // 길이 139
+    const feats = new Float32Array(34);
+    for(let i=0;i<32;i++) feats[i] = upperQ[i];
+    feats[32] = peak.peakI;
+    feats[33] = peak.peakV;
 
-    // 그래프용 (X=Capacity, Y=Voltage)
-    const upperPairs = UPPER_V.map((V, i)=>({x: q32[i], y: V}));
-    const lowerPairs = LOWER_V.map((V, i)=>({x: pred[i], y: V}));
+    const feeds = {}; feeds[inputName] = new ort.Tensor('float32', feats, [1,34]);
+    const out = await sess.run(feeds);
+    const outName = sess.outputNames[0];
+    const y = out[outName].data; // 예측된 하구간 Q 시퀀스(Float32Array)
 
-    drawCapacityVoltage(upperPairs, lowerPairs);
-    fillTable(upperPairs, lowerPairs);
+    // 4) 하구간 전압 그리드(길이 맞춤): 3.88, 3.87, ..., (길이만큼)
+    const lowerV = makeLowerVoltages(y.length);
+    const lowerQ = Array.from(y);
+
+    // 5) 렌더링
+    const upperV = [...UPPER_VS]; // 4.20→3.89
+    drawQV(upperV, upperQ, lowerV, lowerQ);
+
+    // 6) 요약
+    $("qMax").textContent = Math.max(...upperQ).toFixed(6);
+    $("lowLen").textContent = String(lowerQ.length);
+    const allV = [...upperV, ...lowerV];
+    $("vRange").textContent = `${Math.max(...allV).toFixed(2)} → ${Math.min(...allV).toFixed(2)}`;
 
   }catch(e){
     console.error(e);
-    warn("실행 오류: " + (e?.message||e));
+    warn("실행 오류: " + (e?.message || e));
   }
-}
+});
 
-$("runBtn").addEventListener("click", run);
-$("demoBtn").addEventListener("click", ()=>{
-  // 간단 데모: 32개 Q를 완만히 증가시키고 피크는 3.95V, 0.12로
-  const demoQ = [];
-  for(let i=0;i<32;i++){ demoQ.push( (i*0.03).toFixed(4) ); }
-  $("Q32").value = demoQ.join(", ");
-  $("peakI").value = "0.12";
-  $("peakV").value = "3.95";
-  warn("");
-});
-$("clearBtn").addEventListener("click", ()=>{
-  $("Q32").value = ""; $("peakI").value = ""; $("peakV").value = "";
-  warn(""); const c=$("chart"); c.getContext("2d").clearRect(0,0,c.width,c.height);
-  q('#tbl tbody').innerHTML = '';
-});
+/* 초기 안내(작게) */
+warn("상구간 Q(32점)과 dQ/dV를 넣은 뒤 [예측 실행]을 누르세요. dQ/dV는 내부에서 스무딩·피크검출 후 3rd 피크를 사용합니다.");
 </script>
 </body>
 </html>

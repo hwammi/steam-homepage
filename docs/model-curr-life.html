@@ -1,260 +1,373 @@
 <!doctype html>
 <html lang="ko">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CAP 수명 예측 — 상수 프로토콜 + C₀</title>
-<style>
-  :root{--bg:#0b0d12;--fg:#e8ecf3;--muted:#a5afc2;--card:#12161f;--border:#1c2230;--accent:#7c9cff;--r:16px}
-  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",Arial}
-  .wrap{max-width:1100px;margin:0 auto;padding:22px}
-  .grid{display:grid;gap:16px;grid-template-columns:1fr} @media(min-width:980px){.grid{grid-template-columns:1.05fr .95fr}}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
-  .card h2{margin:0;font-size:18px;padding:12px 14px;border-bottom:1px solid var(--border)}
-  .card .body{padding:14px}
-  .row{display:grid;gap:10px;grid-template-columns:1fr} @media(min-width:720px){.row.cols-3{grid-template-columns:1fr 1fr 1fr}}
-  .label{font-size:13px;color:var(--muted);margin-bottom:4px}
-  input,select,button{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#0f1320;color:var(--fg)}
-  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .btn.primary{background:linear-gradient(180deg,var(--accent),#6b86ff);border:none}
-  .warn{font-size:12px;color:#ffb4b4;margin-top:6px;min-height:1.2em}
-  .chart{border:1px solid var(--border);border-radius:12px;padding:10px}
-  canvas{display:block;width:100%;height:260px}
-  table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:10px}
-  thead th{font-size:12px;color:var(--muted);text-align:left;padding:8px}
-  tbody td{padding:8px;border-top:1px solid var(--border)}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>전류 변수 사이클 수명 예측 — STEAM Project Hub</title>
+  <meta name="description" content="상수 프로토콜(C1, %, C2)과 증가 Cycle, 초기 용량 C₀를 바탕으로 CNN-LSTM + LGBM 조합으로 수명 곡선을 롤아웃 예측" />
+  <!-- 라이트 톤 상단바 고정 -->
+  <meta name="theme-color" content="#f7f9fc" />
+  <style>
+    :root{
+      /* 라이트 팔레트 고정 (model-temp-life와 동일) */
+      --bg:#f7f9fc; --fg:#0d1117; --muted:#536075; --card:#ffffff; --border:#e6eaf1;
+      --accent:#3b82f6; --accent2:#14b8a6; --shadow:0 10px 30px rgba(0,0,0,.10); --r:18px;
+      --ease:cubic-bezier(.16,1,.3,1);
+      color-scheme: light; /* 브라우저 위젯/폼/스크롤바도 라이트 */
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",Arial}
+    a{color:inherit; text-decoration:none}
+    .container{width:min(100%,1100px); margin:0 auto; padding:24px 20px}
+
+    /* 상단바/브레드크럼/히어로 (temp-life와 동일 레이아웃) */
+    header{position:sticky; top:0; z-index:5; backdrop-filter:saturate(120%) blur(8px);
+      background:color-mix(in srgb,var(--bg),transparent 20%); border-bottom:1px solid var(--border)}
+    .nav{display:flex; align-items:center; justify-content:space-between; height:64px}
+    .brand{display:flex; align-items:center; gap:10px; font-weight:800}
+    .mark{width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,var(--accent),var(--accent2))}
+    .crumbs{display:flex; gap:8px; align-items:center; font-size:14px; color:var(--muted)}
+    .crumbs a{color:var(--muted)}
+    .hero{padding:26px 0}
+    .hero h1{margin:0 0 8px; font-size:clamp(22px,4.2vw,34px); line-height:1.15}
+    .hero p{margin:0; color:var(--muted)}
+
+    /* 그리드/카드 */
+    .grid{display:grid; gap:18px; grid-template-columns:1fr; align-items:start; margin-top:14px}
+    @media (min-width:980px){ .grid{ grid-template-columns: 1.05fr .95fr; } }
+
+    .card{background:var(--card); border:1px solid var(--border); border-radius:var(--r); box-shadow:var(--shadow); overflow:hidden}
+    .card header{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border)}
+    .card header h2{margin:0; font-size:18px}
+    .card .body{padding:16px}
+
+    /* 폼/버튼 (temp-life 스타일) */
+    .row{display:grid; gap:12px; grid-template-columns: 1fr}
+    @media (min-width:720px){ .row.cols-3{ grid-template-columns: 1fr 1fr 1fr; } .row.cols-2{ grid-template-columns: 1fr 1fr; } }
+
+    .label{font-size:13px; color:var(--muted); margin-bottom:6px}
+    .field{position:relative}
+    .field input[type="number"],
+    .field select,
+    .field button{
+      width:100%; padding:12px 14px; border-radius:12px; background:color-mix(in srgb,var(--card),transparent 8%);
+      border:1px solid var(--border); color:var(--fg); outline:none;
+      transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
+    }
+    input::placeholder{color:color-mix(in srgb,var(--muted),transparent 30%)}
+    input:focus, select:focus{border-color:color-mix(in srgb,var(--accent),transparent 40%); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent),transparent 85%)}
+
+    .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
+    .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; border:1px solid var(--border); cursor:pointer}
+    .btn.primary{background:linear-gradient(180deg,var(--accent),#6b86ff); color:#fff; border-color:transparent}
+    .btn.ghost{background:transparent; color:var(--fg)}
+    .hint{font-size:12px; color:var(--muted)}
+    .warn{font-size:12px; color:#d92b2b; min-height:1.2em}
+
+    /* 차트/통계/테이블 (temp-life 스타일) */
+    .chart-wrap{border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:12px}
+    canvas{display:block; width:100%; height:260px}
+
+    .stats{display:grid; gap:10px; grid-template-columns:1fr; margin-bottom:10px}
+    @media (min-width:720px){ .stats{ grid-template-columns: repeat(3, 1fr); } }
+    .stat{border:1px solid var(--border); border-radius:12px; padding:12px}
+    .stat .k{font-size:12px; color:var(--muted)}
+    .stat .v{font-size:18px; font-weight:700}
+
+    table{width:100%; border-collapse:separate; border-spacing:0; border:1px solid var(--border); border-radius:12px; overflow:hidden}
+    thead th{font-size:12px; color:var(--muted); text-align:left; padding:10px}
+    tbody td{padding:10px; border-top:1px solid var(--border)}
+    tbody tr:hover{background:color-mix(in srgb,var(--card),transparent 12%)}
+  </style>
 </head>
 <body>
-<div class="wrap">
-  <h1 style="margin:0 0 8px">CAP 수명 예측 (상수 C1/%/C2 + 증가 Cycle + C₀)</h1>
-  <p style="margin:0 0 12px;color:var(--muted)">C1, Percentage(%), C2는 고정, Cycle은 시작값부터 1씩 증가한다고 가정합니다. (CNN-LSTM 시퀀스 길이 = 100 고정)</p>
-  <div class="grid">
-    <div class="card">
-      <h2>입력</h2>
-      <div class="body">
-        <div class="row cols-3">
-          <div><div class="label">C1</div><input id="C1" type="number" step="any" placeholder="예: 1.0" /></div>
-          <div><div class="label">Percentage (%)</div><input id="PCT" type="number" step="any" placeholder="예: 90 (0~100)" /></div>
-          <div><div class="label">C2</div><input id="C2" type="number" step="any" placeholder="예: 0.5" /></div>
-        </div>
-        <div class="row cols-3" style="margin-top:6px">
-          <div><div class="label">시작 Cycle</div><input id="CY0" type="number" step="1" value="1" /></div>
-          <div><div class="label">초기 윈도우 길이 (고정 100)</div><input id="SEQ" type="number" step="1" value="100" /></div>
-          <div><div class="label">롤아웃 스텝 수</div><input id="STEPS" type="number" step="1" value="800" /></div>
-        </div>
-        <div class="row cols-3" style="margin-top:6px">
-          <div><div class="label">초기 방전 용량 C₀ (Ah)</div><input id="C0" type="number" step="any" placeholder="예: 2.30" /></div>
-          <div><div class="label">앵커링</div>
-            <select id="anchor">
-              <option value="first">1점: 첫 예측을 C₀에 맞춤</option>
-              <option value="two">2점: EOL(0.8×C₀)에서 재보정</option>
-            </select>
+  <header>
+    <div class="container nav">
+      <div class="brand"><span class="mark" aria-hidden="true"></span> STEAM Project Hub</div>
+      <nav aria-label="보조">
+        <a href="index.html" style="font-size:14px; color:var(--muted)">← 홈으로</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="crumbs"><a href="index.html">홈</a> › <span>머신러닝</span> › <span>전류 변수 사이클 수명 예측</span></div>
+
+    <section class="hero">
+      <h1>전류 변수 사이클 수명 예측 모델</h1>
+      <p class="muted">C1, Percentage(%), C2는 고정, Cycle은 시작값부터 1씩 증가한다고 가정. 초기 용량 C₀를 기준으로 예측 곡선을 앵커링(1점/2점)해 롤아웃.</p>
+    </section>
+
+    <section class="grid">
+      <!-- 입력 카드 -->
+      <article class="card">
+        <header><h2>입력</h2></header>
+        <div class="body">
+          <div class="row cols-3">
+            <div class="field">
+              <div class="label">C1</div>
+              <input id="C1" type="number" step="any" placeholder="예: 1.0" />
+            </div>
+            <div class="field">
+              <div class="label">Percentage (%)</div>
+              <input id="PCT" type="number" step="any" placeholder="예: 90 (0~100)" />
+            </div>
+            <div class="field">
+              <div class="label">C2</div>
+              <input id="C2" type="number" step="any" placeholder="예: 0.5" />
+            </div>
           </div>
-          <div><div class="label">EOL 비율</div><input id="EOL" type="number" step="0.01" value="0.80" /></div>
+
+          <div class="row cols-3">
+            <div class="field">
+              <div class="label">시작 Cycle</div>
+              <input id="CY0" type="number" step="1" value="1" />
+            </div>
+            <div class="field">
+              <div class="label">초기 윈도우 길이 (고정 100)</div>
+              <input id="SEQ" type="number" step="1" value="100" />
+            </div>
+            <div class="field">
+              <div class="label">롤아웃 스텝 수</div>
+              <input id="STEPS" type="number" step="1" value="800" />
+            </div>
+          </div>
+
+          <div class="row cols-3">
+            <div class="field">
+              <div class="label">초기 방전 용량 C₀ (Ah)</div>
+              <input id="C0" type="number" step="any" placeholder="예: 2.30" />
+            </div>
+            <div class="field">
+              <div class="label">앵커링</div>
+              <select id="anchor">
+                <option value="first">1점: 첫 예측을 C₀에 맞춤</option>
+                <option value="two">2점: EOL(0.8×C₀)에서 재보정</option>
+              </select>
+            </div>
+            <div class="field">
+              <div class="label">EOL 비율</div>
+              <input id="EOL" type="number" step="0.01" value="0.80" />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" id="runBtn" type="button">실행</button>
+            <button class="btn" id="demoBtn" type="button">데모 채우기</button>
+            <button class="btn" id="clearBtn" type="button">초기화</button>
+            <span class="hint">모델 파일 경로가 올바른지 확인 필요</span>
+          </div>
+          <div id="warn" class="warn"></div>
         </div>
-        <div class="actions">
-          <button class="btn primary" id="runBtn" type="button">실행</button>
-          <button class="btn" id="demoBtn" type="button">데모 채우기</button>
-          <button class="btn" id="clearBtn" type="button">초기화</button>
+      </article>
+
+      <!-- 출력 카드 -->
+      <article class="card" id="outCard">
+        <header><h2>출력</h2></header>
+        <div class="body">
+          <div class="chart-wrap"><canvas id="chart" width="800" height="260" aria-label="용량 예측 차트"></canvas></div>
+
+          <!-- 간단 요약을 stat 카드로 -->
+          <div class="stats">
+            <div class="stat"><div class="k">첫 예측 (Ah)</div><div class="v" id="statFirst">—</div></div>
+            <div class="stat"><div class="k">마지막 (Ah)</div><div class="v" id="statLast">—</div></div>
+            <div class="stat"><div class="k">길이</div><div class="v" id="statLen">—</div></div>
+          </div>
+
+          <table id="tbl" aria-label="예측 테이블">
+            <thead><tr><th>k</th><th>capacity_hat (Ah)</th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <div id="warn" class="warn"></div>
-      </div>
-    </div>
+      </article>
+    </section>
+  </main>
 
-    <div class="card">
-      <h2>출력</h2>
-      <div class="body">
-        <div class="chart"><canvas id="chart" width="800" height="260"></canvas></div>
-        <div class="row cols-3">
-          <div><div class="label">첫 예측(Ah)</div><input id="first" readonly /></div>
-          <div><div class="label">마지막(Ah)</div><input id="last" readonly /></div>
-          <div><div class="label">길이</div><input id="len" readonly /></div>
-        </div>
-        <table id="tbl"><thead><tr><th>k</th><th>capacity_hat (Ah)</th></tr></thead><tbody></tbody></table>
-      </div>
-    </div>
-  </div>
-</div>
+  <!-- onnxruntime-web (CDN 그대로 유지) -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-<script>
-/* ====== 경로: HTML 위치에 따라 수정하세요 ====== */
-const PATHS = {
-  LGBM_V : "models/curr-life/lgbm_v.onnx",
-  LGBM_IR: "models/curr-life/lgbm_ir.onnx",
-  LGBM_P7: "models/curr-life/lgbm_p7.onnx",
-  LGBM_P8: "models/curr-life/lgbm_p8.onnx",
-  CNN    : "models/curr-life/cnn_lstm.onnx",
-};
-/* ============================================= */
+  <script>
+  /* ====== 경로: HTML 위치에 따라 수정하세요 ====== */
+  const PATHS = {
+    LGBM_V : "models/curr-life/lgbm_v.onnx",
+    LGBM_IR: "models/curr-life/lgbm_ir.onnx",
+    LGBM_P7: "models/curr-life/lgbm_p7.onnx",
+    LGBM_P8: "models/curr-life/lgbm_p8.onnx",
+    CNN    : "models/curr-life/cnn_lstm.onnx",
+  };
+  /* ============================================= */
 
-const REQ_SEQ = 100; // CNN-LSTM이 학습된 시퀀스 길이 (고정)
-const $ = id => document.getElementById(id);
-const q = sel => document.querySelector(sel);
-const warn = m => $("warn").textContent = m || "";
+  const REQ_SEQ = 100; // CNN-LSTM 학습 시퀀스 길이 (고정)
+  const $ = id => document.getElementById(id);
+  const q = sel => document.querySelector(sel);
+  const warn = m => $("warn").textContent = m || "";
 
-let sv, sir, sp7, sp8, scnn;
+  let sv, sir, sp7, sp8, scnn;
 
-async function ensureSessions(){
-  if (sv) return;
-  // WASM proxy off → postMessage(ArrayBuffer detach) 이슈 방지
-  ort.env.wasm.numThreads = 3;
-  ort.env.wasm.proxy = false;
+  async function ensureSessions(){
+    if (sv) return;
+    // WASM 설정
+    ort.env.wasm.numThreads = 3;
+    ort.env.wasm.proxy = false;
 
-  [sv, sir, sp7, sp8, scnn] = await Promise.all([
-    ort.InferenceSession.create(PATHS.LGBM_V,  {executionProviders:["wasm"]}),
-    ort.InferenceSession.create(PATHS.LGBM_IR, {executionProviders:["wasm"]}),
-    ort.InferenceSession.create(PATHS.LGBM_P7, {executionProviders:["wasm"]}),
-    ort.InferenceSession.create(PATHS.LGBM_P8, {executionProviders:["wasm"]}),
-    ort.InferenceSession.create(PATHS.CNN,     {executionProviders:["wasm"]}),
-  ]);
-}
-
-function draw(series){
-  const c=$("chart"), ctx=c.getContext("2d"), dpr=window.devicePixelRatio||1;
-  const W=c.clientWidth,H=c.clientHeight; c.width=W*dpr;c.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.clearRect(0,0,W,H); if(!series.length) return;
-  const L=44,R=8,T=10,B=24,w=W-L-R,h=H-T-B;
-  const mn=Math.min(...series), mx=Math.max(...series), span=Math.max(1e-9,(mx-mn));
-  const x=(i)=>L + w*(i/(series.length-1||1));
-  const y=(v)=> T + h - h*((v-mn)/span);
-  ctx.strokeStyle=getComputedStyle(document.body).getPropertyValue('--border')||'#333';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(L,T);ctx.lineTo(L,T+h);ctx.lineTo(L+w,T+h);ctx.stroke();
-  ctx.strokeStyle='#7c9cff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x(0),y(series[0]));for(let i=1;i<series.length;i++)ctx.lineTo(x(i),y(series[i]));ctx.stroke();
-}
-
-function mkFeatsTensor(c1,pct01,c2,cy){
-  // LGBM 입력: [1,4]
-  return new ort.Tensor('float32', new Float32Array([c1,pct01,c2,cy]), [1,4]);
-}
-
-async function lgbmStep(c1,pct01,c2,cy){
-  // ★ 세션마다 새 텐서 생성(버퍼 재사용 금지)
-  const v  = (await sv .run({ [sv .inputNames[0]]: mkFeatsTensor(c1,pct01,c2,cy) }))[sv .outputNames[0]].data[0];
-  const ir = (await sir.run({ [sir.inputNames[0]]: mkFeatsTensor(c1,pct01,c2,cy) }))[sir.outputNames[0]].data[0];
-  const p7 = (await sp7.run({ [sp7.inputNames[0]]: mkFeatsTensor(c1,pct01,c2,cy) }))[sp7.outputNames[0]].data[0];
-  const p8 = (await sp8.run({ [sp8.inputNames[0]]: mkFeatsTensor(c1,pct01,c2,cy) }))[sp8.outputNames[0]].data[0];
-  return {v, ir, p7, p8};
-}
-
-function makeCnnFeeds(V,IR,P7,P8){
-  // CNN-LSTM 입력 4개 텐서: 각각 [1, REQ_SEQ, 1]
-  const seq = REQ_SEQ;
-  const t = arr => new ort.Tensor('float32', Float32Array.from(arr), [1, seq, 1]);
-  const feeds = {};
-  for(const name of scnn.inputNames){
-    const up = name.toUpperCase();
-    if(up.includes('P7')) feeds[name]=t(P7);
-    else if(up.includes('P8')) feeds[name]=t(P8);
-    else if(up.includes('R')) feeds[name]=t(IR);
-    else feeds[name]=t(V); // 'V' 또는 기타 → V
+    [sv, sir, sp7, sp8, scnn] = await Promise.all([
+      ort.InferenceSession.create(PATHS.LGBM_V,  {executionProviders:["wasm"]}),
+      ort.InferenceSession.create(PATHS.LGBM_IR, {executionProviders:["wasm"]}),
+      ort.InferenceSession.create(PATHS.LGBM_P7, {executionProviders:["wasm"]}),
+      ort.InferenceSession.create(PATHS.LGBM_P8, {executionProviders:["wasm"]}),
+      ort.InferenceSession.create(PATHS.CNN,     {executionProviders:["wasm"]}),
+    ]);
   }
-  return feeds;
-}
 
-async function run(){
-  try{
-    warn(""); await ensureSessions();
-    const C1  = +$("C1").value;
-    const PCT = +$("PCT").value;           // %
-    const C2  = +$("C2").value;
-    const CY0 = Math.round(+$("CY0").value||1);
-    let   SEQ = Math.round(+$("SEQ").value||100);
-    const STEPS = Math.max(1, Math.round(+$("STEPS").value||800));
-    const C0  = +$("C0").value;
-    const EOL = Math.min(1, Math.max(0.5, +$("EOL").value||0.8));
+  function draw(series){
+    const c=$("chart"), ctx=c.getContext("2d"), dpr=window.devicePixelRatio||1;
+    const W=c.clientWidth,H=c.clientHeight; c.width=W*dpr;c.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,W,H); if(!series.length) return;
+    const L=44,R=8,T=10,B=24,w=W-L-R,h=H-T-B;
+    const mn=Math.min(...series), mx=Math.max(...series), span=Math.max(1e-9,(mx-mn));
+    const x=(i)=>L + w*(i/(series.length-1||1));
+    const y=(v)=> T + h - h*((v-mn)/span);
+    // 축
+    ctx.strokeStyle=getComputedStyle(document.body).getPropertyValue('--border')||'#e6eaf1';
+    ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(L,T); ctx.lineTo(L,T+h); ctx.lineTo(L+w,T+h); ctx.stroke();
+    // 선
+    ctx.strokeStyle='#3b82f6';
+    ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x(0),y(series[0]));
+    for(let i=1;i<series.length;i++) ctx.lineTo(x(i),y(series[i])); ctx.stroke();
+  }
 
-    if(!Number.isFinite(C1)||!Number.isFinite(PCT)||!Number.isFinite(C2)||!Number.isFinite(C0)){
-      warn("C1, Percentage, C2, C₀를 모두 입력하세요."); return;
+  function mkFeatsTensor(c1,pct01,c2,cy){
+    return new ort.Tensor('float32', new Float32Array([c1,pct01,c2,cy]), [1,4]);
+  }
+
+  async function lgbmStep(c1,pct01,c2,cy){
+    const v  = (await sv .run({ [sv .inputNames[0]]: mkFeatsTensor(c1,pct01,c2,cy) }))[sv .outputNames[0]].data[0];
+    const ir = (await sir.run({ [sir.inputNames[0]]: mkFeatsTensor(c1,pct01,c2,cy) }))[sir.outputNames[0]].data[0];
+    const p7 = (await sp7.run({ [sp7.inputNames[0]]: mkFeatsTensor(c1,pct01,c2,cy) }))[sp7.outputNames[0]].data[0];
+    const p8 = (await sp8.run({ [sp8.inputNames[0]]: mkFeatsTensor(c1,pct01,c2,cy) }))[sp8.outputNames[0]].data[0];
+    return {v, ir, p7, p8};
+  }
+
+  function makeCnnFeeds(V,IR,P7,P8){
+    const seq = REQ_SEQ;
+    const t = arr => new ort.Tensor('float32', Float32Array.from(arr), [1, seq, 1]);
+    const feeds = {};
+    for(const name of scnn.inputNames){
+      const up = name.toUpperCase();
+      if(up.includes('P7')) feeds[name]=t(P7);
+      else if(up.includes('P8')) feeds[name]=t(P8);
+      else if(up.includes('R')) feeds[name]=t(IR);
+      else feeds[name]=t(V);
     }
-    const pct01 = PCT/100.0;
+    return feeds;
+  }
 
-    // SEQ 강제 100 (모델 고정)
-    if(SEQ !== REQ_SEQ){
-      SEQ = REQ_SEQ; $("SEQ").value = String(REQ_SEQ);
-      warn("모델이 SEQ=100으로 학습되어 입력값을 100으로 강제했습니다.");
-    } else { warn(""); }
+  async function run(){
+    try{
+      warn(""); await ensureSessions();
 
-    // 1) 초기 100스텝 시퀀스 생성 (상수 C1/%/C2, Cycle만 증가)
-    let V=[], IR=[], P7=[], P8=[];
-    for(let i=0;i<SEQ;i++){
-      const cy = CY0 + i;
-      const o = await lgbmStep(C1, pct01, C2, cy);
-      V.push(o.v); IR.push(o.ir); P7.push(o.p7); P8.push(o.p8);
-    }
+      const C1  = +$("C1").value;
+      const PCT = +$("PCT").value;           // %
+      const C2  = +$("C2").value;
+      const CY0 = Math.round(+$("CY0").value||1);
+      let   SEQ = Math.round(+$("SEQ").value||100);
+      const STEPS = Math.max(1, Math.round(+$("STEPS").value||800));
+      const C0  = +$("C0").value;
+      const EOL = Math.min(1, Math.max(0.5, +$("EOL").value||0.8));
 
-    // 2) 롤아웃
-    let capAh = [];
-    let scaleA=null, offsetB=0, recal=false;
-    for(let k=0;k<STEPS;k++){
-      // CNN-LSTM → 정규화 CAP (스칼라)
-      const out = await scnn.run(makeCnnFeeds(V,IR,P7,P8));
-      const yNorm = out[scnn.outputNames[0]].data[0];
-
-      // C₀ 앵커링 (1점)
-      if(k===0){
-        scaleA = C0 / (Math.abs(yNorm)>1e-12 ? yNorm : 1e-12);
-        offsetB = 0;
+      if(!Number.isFinite(C1)||!Number.isFinite(PCT)||!Number.isFinite(C2)||!Number.isFinite(C0)){
+        warn("C1, Percentage, C2, C₀를 모두 입력하세요."); return;
       }
-      let c = scaleA*yNorm + offsetB;
-      capAh.push(c);
+      const pct01 = PCT/100.0;
 
-      // 2점 앵커(옵션): EOL 도달 시 재보정(한 번)
-      if($("anchor").value==="two" && !recal && c <= EOL*C0){
-        const s0 = capAh[0]/scaleA;   // 초기 정규화 값 근사
-        const sE = yNorm;             // 현재 정규화 값
-        const a = (C0 - EOL*C0) / (s0 - sE + 1e-12);
-        const b = C0 - a*s0;
-        capAh = capAh.map((v,i)=> a*((i===0)? s0 : (v/scaleA)) + b);
-        scaleA=a; offsetB=b; recal=true;
+      // SEQ 강제 100 (모델 고정)
+      if(SEQ !== REQ_SEQ){
+        SEQ = REQ_SEQ; $("SEQ").value = String(REQ_SEQ);
+        warn("모델이 SEQ=100으로 학습되어 입력값을 100으로 강제했습니다.");
+      } else { warn(""); }
+
+      // 1) 초기 100스텝 시퀀스 생성
+      let V=[], IR=[], P7=[], P8=[];
+      for(let i=0;i<SEQ;i++){
+        const cy = CY0 + i;
+        const o = await lgbmStep(C1, pct01, C2, cy);
+        V.push(o.v); IR.push(o.ir); P7.push(o.p7); P8.push(o.p8);
       }
 
-      // 다음 스텝: Cycle 증가 → 특성 예측 → 시퀀스 슬라이드
-      const cyNext = CY0 + SEQ + k; // 다음 시점 Cycle
-      const nxt = await lgbmStep(C1, pct01, C2, cyNext);
-      V.push(nxt.v); IR.push(nxt.ir); P7.push(nxt.p7); P8.push(nxt.p8);
-      V.shift(); IR.shift(); P7.shift(); P8.shift();
+      // 2) 롤아웃
+      let capAh = [];
+      let scaleA=null, offsetB=0, recal=false;
+      for(let k=0;k<STEPS;k++){
+        const out = await scnn.run(makeCnnFeeds(V,IR,P7,P8));
+        const yNorm = out[scnn.outputNames[0]].data[0];
 
-      // EOL 도달 시 조기 종료
-      if(c <= EOL*C0) break;
-    }
+        // 1점 앵커링
+        if(k===0){
+          scaleA = C0 / (Math.abs(yNorm)>1e-12 ? yNorm : 1e-12);
+          offsetB = 0;
+        }
+        let c = scaleA*yNorm + offsetB;
+        capAh.push(c);
 
-    // 3) 렌더링/테이블
-    draw(capAh);
-    $("first").value = capAh.length? capAh[0].toFixed(6) : "—";
-    $("last").value  = capAh.length? capAh.at(-1).toFixed(6) : "—";
-    $("len").value   = String(capAh.length);
+        // 2점 앵커(옵션): EOL 도달 시 재보정(한 번)
+        if($("anchor").value==="two" && !recal && c <= EOL*C0){
+          const s0 = capAh[0]/scaleA;   // 초기 정규화 값 근사
+          const sE = yNorm;             // 현재 정규화 값
+          const a = (C0 - EOL*C0) / (s0 - sE + 1e-12);
+          const b = C0 - a*s0;
+          capAh = capAh.map((v,i)=> a*((i===0)? s0 : (v/scaleA)) + b);
+          scaleA=a; offsetB=b; recal=true;
+        }
 
-    const tb = q('#tbl tbody');
-    if (tb){
+        // 다음 스텝: Cycle 증가 → 특성 예측 → 시퀀스 슬라이드
+        const cyNext = CY0 + SEQ + k;
+        const nxt = await lgbmStep(C1, pct01, C2, cyNext);
+        V.push(nxt.v); IR.push(nxt.ir); P7.push(nxt.p7); P8.push(nxt.p8);
+        V.shift(); IR.shift(); P7.shift(); P8.shift();
+
+        // EOL 도달 시 조기 종료
+        if(c <= EOL*C0) break;
+      }
+
+      // 3) 렌더링/요약/테이블
+      draw(capAh);
+
+      const first = capAh.length ? capAh[0] : NaN;
+      const last  = capAh.length ? capAh.at(-1) : NaN;
+
+      $("statFirst").textContent = Number.isFinite(first)? first.toFixed(6) : '—';
+      $("statLast").textContent  = Number.isFinite(last)?  last.toFixed(6)  : '—';
+      $("statLen").textContent   = String(capAh.length||0);
+
+      const tb = q('#tbl tbody');
       tb.innerHTML = '';
       capAh.forEach((y,i)=>{
         const tr=document.createElement('tr');
         tr.innerHTML=`<td>${i+1}</td><td>${y.toFixed(8)}</td>`;
         tb.appendChild(tr);
       });
+
+    }catch(e){
+      console.error(e);
+      warn("실행 중 오류: "+(e?.message||e));
     }
-
-  }catch(e){
-    console.error(e);
-    warn("실행 오류: "+(e?.message||e));
   }
-}
 
-$("runBtn").addEventListener("click", run);
-$("demoBtn").addEventListener("click", ()=>{
-  $("C1").value="1.0"; $("PCT").value="90"; $("C2").value="0.5"; $("CY0").value="1";
-  $("SEQ").value="100"; $("STEPS").value="800"; $("C0").value="2.30"; $("anchor").value="first"; $("EOL").value="0.80";
-  warn("");
-});
-$("clearBtn").addEventListener("click", ()=>{
-  for(const id of ["C1","PCT","C2","CY0","SEQ","STEPS","C0"]) $(id).value="";
-  draw([]);
-  const tb = q('#tbl tbody'); if (tb) tb.innerHTML = '';
-  $("first").value=$("last").value=$("len").value="";
-  warn("");
-});
-</script>
+  $("runBtn").addEventListener("click", run);
+  $("demoBtn").addEventListener("click", ()=>{
+    $("C1").value="1.0"; $("PCT").value="90"; $("C2").value="0.5"; $("CY0").value="1";
+    $("SEQ").value="100"; $("STEPS").value="800"; $("C0").value="2.30"; $("anchor").value="first"; $("EOL").value="0.80";
+    warn("");
+  });
+  $("clearBtn").addEventListener("click", ()=>{
+    for(const id of ["C1","PCT","C2","CY0","SEQ","STEPS","C0"]) $(id).value="";
+    draw([]);
+    const tb = q('#tbl tbody'); tb.innerHTML = '';
+    $("statFirst").textContent=$("statLast").textContent=$("statLen").textContent="—";
+    warn("");
+  });
+  </script>
 </body>
 </html>

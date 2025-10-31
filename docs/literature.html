@@ -4,27 +4,23 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>문헌 추출 데이터 — STEAM Project Hub</title>
-  <meta name="description" content="문헌 키워드 선택 후 하단 데이터베이스 블록에서 첨부된 CSV 데이터셋을 미리보고 다운로드" />
-  <!-- 모바일/브라우저 상단바도 밝은 톤 -->
-  <meta name="theme-color" content="#f7f9fc">
+  <meta name="description" content="문헌에서 자동 추출/정규화된 전극소재·용량 예측 관련 데이터 다운로드" />
+  <meta name="theme-color" content="#f7f9fc" />
   <style>
     :root{
-      /* 라이트 팔레트 고정 */
       --bg:#f7f9fc; --fg:#0d1117; --muted:#536075; --card:#ffffff; --border:#e6eaf1;
       --accent:#3b82f6; --accent2:#14b8a6; --shadow:0 10px 30px rgba(0,0,0,.10); --r:18px;
       --pop-dur:.8s; --pop-ease:cubic-bezier(.16,1,.3,1); --pop-scale:1.03;
-      --overlay-dur:.5s;
-      --table-h: 52vh;
-      /* 폼·스크롤바 등 브라우저 기본 위젯도 라이트로 */
       color-scheme: light;
     }
-
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",Arial}
     a{color:inherit; text-decoration:none}
     .container{width:min(100%,1100px); margin:0 auto; padding:24px 20px}
-    header{position:sticky; top:0; z-index:10; backdrop-filter:saturate(120%) blur(8px); background:color-mix(in srgb,var(--bg),transparent 20%); border-bottom:1px solid var(--border)}
+
+    header{position:sticky; top:0; z-index:10; backdrop-filter:saturate(120%) blur(8px);
+      background:color-mix(in srgb,var(--bg),transparent 20%); border-bottom:1px solid var(--border)}
     .nav{display:flex; align-items:center; justify-content:space-between; height:64px}
     .brand{display:flex; align-items:center; gap:10px; font-weight:800}
     .mark{width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,var(--accent),var(--accent2))}
@@ -35,39 +31,27 @@
     .crumbs{display:flex; gap:8px; align-items:center; font-size:14px; color:var(--muted)}
     .crumbs a{color:var(--muted)}
 
-    .panel{background:var(--card); border:1px solid var(--border); border-radius:var(--r); box-shadow:var(--shadow); padding:16px; margin-top:18px}
-    .panel h2{margin:0 0 8px; font-size:18px}
+    /* 카드 그리드 (3개) */
+    .grid{display:grid; gap:20px; grid-template-columns:1fr; margin-top:22px}
+    @media (min-width:900px){ .grid{grid-template-columns:repeat(3,1fr)} }
 
-    .kw-grid{display:grid; gap:12px; grid-template-columns:1fr;}
-    @media (min-width:900px){ .kw-grid{grid-template-columns:repeat(3,1fr)} }
+    .card{
+      position:relative; background:var(--card); border:1px solid var(--border); border-radius:var(--r);
+      padding:16px; box-shadow:var(--shadow);
+      transition:transform var(--pop-dur) var(--pop-ease), box-shadow var(--pop-dur) var(--pop-ease), filter var(--pop-dur) ease
+    }
+    .card:hover,.card:focus-within{transform:translateY(-6px) scale(var(--pop-scale)); box-shadow:0 20px 50px rgba(0,0,0,.12); filter:brightness(1.02)}
+    .kicker{font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--accent2); font-weight:800}
+    .title{margin:6px 0 8px; font-size:18px}
+    .desc{margin:0 2px 14px; color:var(--muted); font-size:14px; min-height:3.2em}
 
-    .kw{position:relative; border:1px dashed var(--border); border-radius:12px; padding:16px 14px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:10px;
-      transition:transform var(--pop-dur) var(--pop-ease), box-shadow var(--pop-dur) var(--pop-ease), filter var(--pop-dur) ease}
-    .kw:hover,.kw:focus-within{transform:translateY(-4px) scale(var(--pop-scale)); box-shadow:0 16px 42px rgba(0,0,0,.15); filter:brightness(1.02)}
-    .kw .name{font-weight:800}
-    .kw .meta{font-size:12px; color:var(--muted)}
-    .kw .uploader{display:flex; align-items:center; gap:8px}
-    .uploader input{display:none}
-    .btn{display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; border:1px solid var(--border); cursor:pointer; background:rgba(0,0,0,.02)}
+    .actions{display:flex; gap:8px; flex-wrap:wrap}
+    .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 14px;
+      border-radius:12px; border:1px solid var(--border); cursor:pointer}
+    .btn.primary{background:linear-gradient(180deg,var(--accent),#6b86ff); color:#fff; border-color:transparent}
+    .btn.ghost{background:transparent; color:var(--fg)}
 
-    .db-head{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
-    .db-title{font-weight:900}
-    .controls{display:flex; gap:8px; align-items:center}
-    .controls input[type=file]{display:none}
-    select{background:transparent; color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:6px 8px}
-    .chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
-    .chip{display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:10px; padding:6px 10px}
-    .chip a{font-weight:700}
-    .chip button{border:1px solid var(--border); background:transparent; color:var(--fg); border-radius:8px; padding:4px 6px; cursor:pointer}
-
-    .empty{color:var(--muted); font-size:14px}
-
-    .table-wrap{margin-top:12px; border:1px solid var(--border); border-radius:12px; overflow:auto; max-height:var(--table-h); background:var(--card)}
-    table{border-collapse:separate; border-spacing:0; width:100%; font-size:14px}
-    thead th{position:sticky; top:0; background:color-mix(in srgb,var(--card),transparent 15%); border-bottom:1px solid var(--border); text-align:left; padding:10px}
-    tbody td{border-bottom:1px solid var(--border); padding:8px 10px; vertical-align:top}
-    tbody tr:nth-child(odd){background:color-mix(in srgb,var(--card),transparent 8%)}
-    .note{margin-top:6px; color:var(--muted); font-size:12px}
+    footer{padding:40px 0 60px; color:var(--muted)}
   </style>
 </head>
 <body>
@@ -81,34 +65,51 @@
   </header>
 
   <main class="container">
-    <div class="crumbs"><a href="index.html">홈</a> › <a href="database.html">데이터베이스</a> › <span>문헌 추출</span></div>
+    <div class="crumbs"><a href="index.html">홈</a> › <a href="database.html">데이터베이스</a> › <span>문헌 추출 데이터</span></div>
     <section class="hero" aria-label="타이틀">
-      <h1>문헌 추출 데이터</h1>
-      <p>키워드를 선택하면 하단의 데이터베이스 블록에서 CSV 데이터셋을 미리보고 다운로드할 수 있습니다.</p>
+      <h1>문헌 추출 데이터 (3개)</h1>
+      <p>각 블록의 <strong>다운로드</strong> 버튼을 누르면 연결된 Google Drive 링크로 이동합니다.</p>
     </section>
 
-    <section class="panel" aria-label="키워드">
-      <h2>키워드</h2>
-      <div class="kw-grid" id="kwGrid"></div>
-    </section>
+    <section class="grid" aria-label="데이터 소스 선택">
+      <!-- 1) AI 기반 전극소재 개발 기술 데이터 베이스 -->
+      <article class="card" tabindex="0" aria-labelledby="ai-db-title">
+        <div class="kicker">LITERATURE</div>
+        <h3 id="ai-db-title" class="title">AI 기반 전극소재 개발 기술 데이터 베이스</h3>
+        <p class="desc">문헌에서 추출·정규화된 전극 조성/공정/성능 항목을 AI 학습 가능 형태로 구성.</p>
+        <div class="actions">
+          <!-- FILE_ID_AI_DB 를 실제 드라이브 파일 ID로 교체 -->
+          <a class="btn primary" target="_blank" rel="noopener"
+             href="https://drive.google.com/drive/folders/1f9oYaVrx_H0GcAjDDuni3kUHnTM9XWIC?usp=sharing"
+             aria-label="AI 기반 전극소재 개발 기술 데이터 베이스 다운로드">다운로드</a>
+        </div>
+      </article>
 
-    <section class="panel" aria-label="데이터베이스">
-      <div class="db-head">
-        <div>
-          <div class="db-title" id="dbTitle">데이터베이스 — 키워드를 선택하세요</div>
-          <div class="note" id="dbSubtitle">CSV 첨부 파일을 미리보기로 표시합니다 (최대 200행).</div>
+      <!-- 2) 온도 변수 용량 예측 모델을 위한 데이터 베이스 -->
+      <article class="card" tabindex="0" aria-labelledby="temp-db-title">
+        <div class="kicker">LITERATURE</div>
+        <h3 id="temp-db-title" class="title">온도 변수 용량 예측 모델을 위한 데이터 베이스</h3>
+        <p class="desc">온도 조건별 방전 용량/열화 지표를 표준 스키마로 정리한 문헌 추출 데이터.</p>
+        <div class="actions">
+          <!-- FILE_ID_TEMP_DB 를 실제 드라이브 파일 ID로 교체 -->
+          <a class="btn primary" target="_blank" rel="noopener"
+             href="https://drive.google.com/drive/folders/1AmQhQZh_AKQH2at4n_yoYFY46pQ0j8am?usp=sharing"
+             aria-label="온도 변수 용량 예측 모델용 데이터 베이스 다운로드">다운로드</a>
         </div>
-        <div class="controls">
-          <label class="btn" for="dbAttach">파일 추가</label>
-          <input id="dbAttach" type="file" multiple accept=".csv,text/csv" />
-          <select id="fileSelect" hidden></select>
+      </article>
+
+      <!-- 3) 전류 변수 용량 예측 모델을 위한 데이터 베이스 -->
+      <article class="card" tabindex="0" aria-labelledby="curr-db-title">
+        <div class="kicker">LITERATURE</div>
+        <h3 id="curr-db-title" class="title">전류 변수 용량 예측 모델을 위한 데이터 베이스</h3>
+        <p class="desc">레이트/전류 프로토콜에 따른 용량·수명 데이터를 문헌에서 체계적으로 수집.</p>
+        <div class="actions">
+          <!-- FILE_ID_CURR_DB 를 실제 드라이브 파일 ID로 교체 -->
+          <a class="btn primary" target="_blank" rel="noopener"
+             href="https://drive.google.com/drive/folders/1B6J7wCaiTRAQdQ-IetJMOPYuLyPlsyL-?usp=sharing"
+             aria-label="전류 변수 용량 예측 모델용 데이터 베이스 다운로드">다운로드</a>
         </div>
-      </div>
-      <div class="chips" id="attachChips"></div>
-      <div class="table-wrap" id="tableWrap" hidden>
-        <table id="csvTable"></table>
-      </div>
-      <div class="empty" id="emptyState">선택된 키워드가 없거나 첨부된 데이터셋이 없습니다.</div>
+      </article>
     </section>
   </main>
 
@@ -121,158 +122,8 @@
 
   <script>
     document.getElementById('y').textContent = new Date().getFullYear();
-
-    const KEYWORDS = [
-      { id:'afm',    name:'AFM / C-AFM' },
-      { id:'tem',    name:'TEM imaging' },
-      { id:'xps',    name:'XPS spectra' },
-      { id:'txm',    name:'TXM 3D tomography' },
-      { id:'oems',   name:'OEMS gas analysis' },
-      { id:'fibsem', name:'FIB-SEM tomography' }
-    ];
-
-    const store = new Map();
-    let currentId = null;
-
-    const kwGrid = document.getElementById('kwGrid');
-    const dbTitle = document.getElementById('dbTitle');
-    const dbSubtitle = document.getElementById('dbSubtitle');
-    const dbAttach = document.getElementById('dbAttach');
-    const fileSelect = document.getElementById('fileSelect');
-    const attachChips = document.getElementById('attachChips');
-    const tableWrap = document.getElementById('tableWrap');
-    const csvTable = document.getElementById('csvTable');
-    const emptyState = document.getElementById('emptyState');
-
-    function renderKeywords(){
-      kwGrid.innerHTML = '';
-      KEYWORDS.forEach(k => {
-        const item = document.createElement('div');
-        item.className = 'kw'; item.setAttribute('role','button'); item.tabIndex = 0; item.dataset.id = k.id;
-        const left = document.createElement('div');
-        left.innerHTML = `<div class="name">${escapeHTML(k.name)}</div><div class="meta" id="meta-${k.id}">첨부 0개</div>`;
-        const up = document.createElement('div'); up.className='uploader';
-        const label = document.createElement('label'); label.className='btn'; label.setAttribute('for', `up-${k.id}`); label.textContent='파일 추가';
-        const input = document.createElement('input'); input.type='file'; input.id=`up-${k.id}`; input.accept='.csv,text/csv'; input.multiple = true;
-        up.appendChild(label); up.appendChild(input);
-        item.appendChild(left); item.appendChild(up);
-        item.addEventListener('click', (e)=>{ if(e.target.tagName==='LABEL' || e.target.tagName==='INPUT') return; selectKeyword(k.id); });
-        item.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectKeyword(k.id); }});
-        input.addEventListener('change', ()=> addFiles(k.id, input.files));
-        kwGrid.appendChild(item);
-      });
-    }
-
-    function selectKeyword(id){
-      currentId = id;
-      const files = store.get(id) || [];
-      dbTitle.textContent = `데이터베이스 — ${KEYWORDS.find(x=>x.id===id).name}`;
-      dbSubtitle.textContent = files.length ? `첨부 ${files.length}개, 아래에서 미리보기를 선택하세요 (최대 200행).` : '첨부된 CSV가 없습니다. 우측 "파일 추가"로 첨부해 주세요.';
-      emptyState.hidden = files.length>0;
-      renderChips(files);
-      renderFileSelect(files);
-      if(files.length>0){
-        setPreview(id, 0);
-      } else {
-        tableWrap.hidden = true; csvTable.innerHTML = '';
-      }
-    }
-
-    async function addFiles(id, fileList){
-      if(!fileList || fileList.length===0) return;
-      const arr = store.get(id) || [];
-      for(const file of fileList){
-        const text = await file.text();
-        const url = URL.createObjectURL(file);
-        arr.push({ name:file.name, url, text });
-      }
-      store.set(id, arr);
-      const meta = document.getElementById(`meta-${id}`); if(meta) meta.textContent = `첨부 ${arr.length}개`;
-      if(currentId === id) selectKeyword(id);
-    }
-
-    function renderChips(files){
-      attachChips.innerHTML = '';
-      if(files.length===0){ return; }
-      files.forEach((f, idx)=>{
-        const chip = document.createElement('div'); chip.className='chip';
-        const a = document.createElement('a'); a.href = f.url; a.download = f.name; a.textContent = f.name; a.rel='noopener';
-        const del = document.createElement('button'); del.textContent='삭제';
-        del.addEventListener('click', ()=>{
-          URL.revokeObjectURL(f.url);
-          files.splice(idx,1); store.set(currentId, files);
-          const meta = document.getElementById(`meta-${currentId}`); if(meta) meta.textContent = `첨부 ${files.length}개`;
-          renderChips(files); renderFileSelect(files);
-          if(files.length){ setPreview(currentId, 0); } else { tableWrap.hidden=true; csvTable.innerHTML=''; emptyState.hidden=false; }
-        });
-        chip.appendChild(a); chip.appendChild(del);
-        attachChips.appendChild(chip);
-      });
-    }
-
-    function renderFileSelect(files){
-      if(!files.length){ fileSelect.hidden = true; return; }
-      fileSelect.hidden = false; fileSelect.innerHTML = '';
-      files.forEach((f,i)=>{
-        const opt = document.createElement('option'); opt.value = String(i); opt.textContent = f.name; fileSelect.appendChild(opt);
-      });
-      fileSelect.onchange = ()=> setPreview(currentId, Number(fileSelect.value));
-      fileSelect.value = '0';
-    }
-
-    function setPreview(id, index){
-      const files = store.get(id) || [];
-      if(!files[index]){ tableWrap.hidden=true; return; }
-      const csvText = files[index].text;
-      const data = parseCSV(csvText, ',');
-      renderTable(data);
-    }
-
-    function renderTable(data){
-      if(!data || !data.length){ tableWrap.hidden=true; csvTable.innerHTML=''; return; }
-      const PREVIEW_ROWS = 200;
-      const rows = data.slice(0, PREVIEW_ROWS);
-      const cols = Math.max(...rows.map(r=>r.length));
-      const head = rows[0] || [];
-      let html = '<thead><tr>' + Array.from({length: cols}).map((_,i)=>`<th>${escapeHTML(head[i] ?? ('Col '+(i+1)))}</th>`).join('') + '</tr></thead>';
-      html += '<tbody>' + rows.slice(1).map(r=>'<tr>'+Array.from({length: cols}).map((_,i)=>`<td>${escapeHTML(r[i] ?? '')}</td>`).join('')+'</tr>').join('') + '</tbody>';
-      csvTable.innerHTML = html;
-      tableWrap.hidden = false;
-    }
-
-    function parseCSV(text, delim){
-      const out = []; let row = []; let cur = '';
-      let i=0; let inQuotes=false; const n=text.length; delim = delim || ',';
-      while(i<n){
-        const ch = text[i];
-        if(inQuotes){
-          if(ch==='"'){
-            if(i+1<n && text[i+1]==='"'){ cur+='"'; i+=2; continue; }
-            inQuotes = false; i++; continue;
-          } else { cur+=ch; i++; continue; }
-        } else {
-          if(ch==='"'){ inQuotes=true; i++; continue; }
-          if(ch===delim){ row.push(cur); cur=''; i++; continue; }
-          if(ch==='\n'){ row.push(cur); out.push(row); row=[]; cur=''; i++; continue; }
-          if(ch==='\r'){ i++; continue; }
-          cur+=ch; i++;
-        }
-      }
-      row.push(cur); out.push(row);
-      return out;
-    }
-
-    function escapeHTML(s){
-      if(s==null) return '';
-      return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[m]));
-    }
-
-    dbAttach.addEventListener('change', ()=>{
-      if(!currentId){ alert('먼저 상단에서 키워드를 선택하세요.'); dbAttach.value=''; return; }
-      addFiles(currentId, dbAttach.files).then(()=>{ dbAttach.value=''; });
-    });
-
-    renderKeywords();
+    // 공유 링크가 "file/d/FILE_ID/view?..." 형태라면,
+    // 위 href를 "https://drive.google.com/uc?export=download&id=FILE_ID" 로 바꾸면 바로 다운로드 트리거가 됩니다.
   </script>
 </body>
 </html>

@@ -6,26 +6,28 @@
   <title>STEAM Project Hub — 이차전지 DB & ML</title>
   <meta name="description" content="이차전지 관련 데이터베이스와 머신러닝 모델을 한 곳에서 보고 체험하는 플랫폼의 오프라인 프로토타입" />
   <style>
-    :root{
-      --bg:#0b0d12; --fg:#e8ecf3; --muted:#a5afc2; --card:#12161f; --border:#1c2230;
-      --accent:#7c9cff; --accent2:#00d1b2; --shadow:0 10px 30px rgba(0,0,0,.35); --r:18px;
-      --expanded-h: 78svh; /* JS가 상황에 맞춰 덮어씀 */
-      --snap-top: 0px;     /* 확장 시 절대 위치 기준 */
-      /* ======== 속도/강도 조절 노브 ======== */
-      --pop-dur: 3s;            /* 팝아웃 속도 (느리게) */
-      --overlay-dur: 0.7s;      /* 배경 어둡게 페이드 속도 */
-      --pop-ease: cubic-bezier(.16,1,.3,1); /* 이징 커브 */
-      --pop-scale: 1.06;        /* 확대 비율 (1.03~1.10 권장) */
-      --pop-translate: -14px;   /* 위쪽 슬라이드 거리 */
-      --modal-dur: .55s;        /* 오버레이 패널 등장 속도 */
-      /* 미리보기 배경 크기/줌 조절 (오버레이 뒤) */
-      --ml-bg-size: clamp(420px, 60vmin, 1000px);
-      --ml-bg-zoom-closed: 1;
-      --ml-bg-zoom-open: 1.02;
-    }
-    @media (prefers-color-scheme: light){
-      :root{ --bg:#f7f9fc; --fg:#0d1117; --muted:#536075; --card:#ffffff; --border:#e6eaf1; --accent:#3b82f6; --accent2:#14b8a6; }
-    }
+  :root{
+    /* Light palette (항상 라이트 고정) */
+    --bg:#f7f9fc; --fg:#0d1117; --muted:#536075; --card:#ffffff; --border:#e6eaf1;
+    --accent:#3b82f6; --accent2:#14b8a6; --shadow:0 10px 30px rgba(0,0,0,.08); --r:18px;
+
+    --expanded-h:78svh; --snap-top:0px;
+
+    /* motion knobs */
+    --pop-dur:3s; --overlay-dur:.7s; --pop-ease:cubic-bezier(.16,1,.3,1);
+    --pop-scale:1.06; --pop-translate:-14px; --modal-dur:.55s;
+
+    --ml-bg-size:clamp(420px,60vmin,1000px);
+    --ml-bg-zoom-closed:1; --ml-bg-zoom-open:1.02;
+
+  /* 핵심: 브라우저 자동 다크 방지(폼/스크롤바 포함) */
+    color-scheme: light;
+  }
+
+    <!-- @media (prefers-color-scheme: light){
+      :root{ --bg:#f7f9fc; --fg:#0d1117; --muted:#536075; --card:#ffffff; --border:#e6eaf1; --accent:#3b82f6; --accent2:#14b8a6;
+       }
+    } -->
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",Arial}
@@ -209,15 +211,15 @@
         <button class="ml-close" id="mlClose" aria-label="닫기">닫기</button>
       </header>
       <div class="ml-list">
-        <button class="ml-item" data-id="bo">Bayesian Optimization 기반 목표 용량 배터리 설계 지침 제안 모델</button>
-        <button class="ml-item" data-id="opt">시뮬레이션 데이터 기반 최적화 프레임워크 구축 및 셀 열관리 시스템 최적화 모델</button>
-        <button class="ml-item" data-id="temp">온도, 전류 변수를 고려한 충방전 주기 별 배터리 방전 용량 예측 모델</button>
-        <button class="ml-item" data-id="early">초기 충·방전 데이터를 활용한 상용 배터리 용량 조기 예측 모델</button>
-        <button class="ml-item" data-id="image">이미지 기반 양극재 열화 상태 예측 및 정량화 모델</button>
-        <button class="ml-item" data-id="lstm">초기 사이클 데이터를 활용한 LSTM 기반 배터리 수명 시험 모델</button>
-        <button class="ml-item" data-id="inter">머신러닝 기반의 면간거리 측정을 통한 분석 효율화 및 자동화 모델</button>
-        <button class="ml-item" data-id="llmmd">LLM 기반 MD 시뮬레이션을 통한 전해질 물성 자동 예측 모델</button>
-        <button class="ml-item" data-id="shelf">충전도 기반 보관 수명 특성 예측 모델</button>
+        <button class="ml-item" data-id="bo">Bayesian optimization 기반 목표 용량 배터리 설계 지침 제안 모델</button>
+        <button class="ml-item" data-id="temp-life">온도 변수 사이클 수명 시험 모델</button>
+        <button class="ml-item" data-id="curr-life">전류 변수 사이클 수명 시험 모델</button>
+        <button class="ml-item" data-id="soc-cycle">충전도 기반 사이클 수명 시험 모델</button>
+        <button class="ml-item" data-id="shelf">충전도 기반 보관 수명 특성 모델</button>
+        <button class="ml-item" data-id="sem-img">SEM 이미지 기반 양극재 열화 상태 예측 및 정량화 모델</button>
+        <button class="ml-item" data-id="tem-img">TEM 이미지 기반 양극 열화 상태 예측 모델</button>
+        <button class="ml-item" data-id="eis-predict">EIS 평가 기반 배터리 성능 변화 조기예측 모델</button>
+        <button class="ml-item" data-id="llmmd-video">LLM 기반 MD 시뮬레이션을 통한 전해질 물성 자동 예측 모델 (영상)</button>
       </div>
     </div>
   </div>
@@ -359,15 +361,15 @@
     mlClose.addEventListener('click', closeMLOutline);
 
     const MODEL_ROUTES = {
-      bo:    'model-bo.html',
-      opt:   'model-opt.html',
-      temp:  'model-temp.html',
-      early: 'model-early.html',
-      image: 'model-image.html',
-      lstm:  'model-lstm.html',
-      inter: 'model-inter.html',
-      llmmd: 'model-llmmd.html',
-      shelf: 'model-shelf.html'
+      bo:            'model-bo.html',
+      'temp-life':   'model-temp-life.html',
+      'curr-life':   'model-curr-life.html',
+      'soc-cycle':    'model-soc-cycle.html',
+      'shelf':   'model-shelf.html',
+      'sem-img':     'model-sem-img.html',
+      'tem-img':     'model-tem-img.html',
+      'eis-predict': 'model-eis-predict.html',
+      'llmmd-video': 'model-llmmd-video.html'
     };
 
     document.querySelectorAll('.ml-item').forEach(btn=>{

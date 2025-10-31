@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>머신러닝 — STEAM Project Hub</title>
-  <meta name="description" content="머신러닝 모델 카탈로그: 8개 모델을 오버레이 팝업으로 선택" />
+  <meta name="description" content="머신러닝 모델 카탈로그: 9개 모델을 오버레이 팝업으로 선택" />
   <style>
     :root{
       --bg:#0b0d12; --fg:#e8ecf3; --muted:#a5afc2; --card:#12161f; --border:#1c2230;
@@ -108,20 +108,23 @@
         <h2 id="mlMenuTitle">머신러닝 모델</h2>
         <button class="ml-close" id="mlClose" aria-label="닫기">닫기</button>
       </header>
+
+      <!-- ▼ 새 목록 (9개) -->
       <div class="ml-list">
-        <button class="ml-item" data-id="bo">Bayesian Optimization 기반 목표 용량 배터리 설계 지침 제안 모델</button>
-        <button class="ml-item" data-id="opt">시뮬레이션 데이터 기반 최적화 프레임워크 구축 및 셀 열관리 시스템 최적화 모델</button>
-        <button class="ml-item" data-id="temp">온도, 전류 변수를 고려한 충방전 주기 별 배터리 방전 용량 예측 모델</button>
-        <button class="ml-item" data-id="early">초기 충·방전 데이터를 활용한 상용 배터리 용량 조기 예측 모델</button>
-        <button class="ml-item" data-id="image">이미지 기반 양극재 열화 상태 예측 및 정량화 모델</button>
-        <button class="ml-item" data-id="lstm">초기 사이클 데이터를 활용한 LSTM 기반 배터리 수명 시험 모델</button>
-        <button class="ml-item" data-id="inter">머신러닝 기반의 면간거리 측정을 통한 분석 효율화 및 자동화</button>
-        <button class="ml-item" data-id="llmmd">LLM 기반 MD 시뮬레이션을 통한 전해질 물성 자동 예측</button>
-        <button class="ml-item" data-id="shelf">충전도 기반 보관 수명 특성 예측 모델</button>
+        <button class="ml-item" data-id="bo">Bayesian optimization 기반 목표 용량 배터리 설계 지침 제안 모델</button>
+        <button class="ml-item" data-id="temp-life">온도 변수 사이클 수명 시험 모델</button>
+        <button class="ml-item" data-id="curr-life">전류 변수 사이클 수명 시험 모델</button>
+        <button class="ml-item" data-id="soc-cycle">충전도 기반 사이클 수명 시험 모델</button>
+        <button class="ml-item" data-id="shelf">충전도 기반 보관 수명 특성 모델</button>
+        <button class="ml-item" data-id="sem-img">SEM 이미지 기반 양극재 열화 상태 예측 및 정량화 모델</button>
+        <button class="ml-item" data-id="tem-img">TEM 이미지 기반 양극 열화 상태 예측 모델</button>
+        <button class="ml-item" data-id="eis-predict">EIS 평가 기반 배터리 성능 변화 조기예측 모델</button>
+        <button class="ml-item" data-id="llmmd-video">LLM 기반 MD 시뮬레이션을 통한 전해질 물성 자동 예측 모델 (영상)</button>
       </div>
+
       <div class="ml-detail" id="mlDetail">
         <h3 id="detailTitle">모델을 선택하세요</h3>
-        <p id="detailDesc">선택한 항목의 간단 설명이나 향후 연결(데모/다운로드 등)을 이 영역에 표시할 수 있습니다.</p>
+        <p id="detailDesc">선택한 항목의 간단 설명이나 연결(데모/다운로드/문서)을 이 영역에 표시할 수 있습니다.</p>
       </div>
     </div>
   </div>
@@ -148,16 +151,25 @@
     const detailTitle = document.getElementById('detailTitle');
     const detailDesc = document.getElementById('detailDesc');
 
+    // 설명 텍스트
     const DESCS = {
-      bo: 'Bayesian Optimization을 사용해 목표 용량을 만족하는 설계 지침을 제안합니다.',
-      opt: '시뮬레이션 데이터 기반 최적화 프레임워크로 셀 열관리 시스템을 튜닝합니다.',
-      temp: '온도/전류 변수를 반영해 충방전 주기별 방전 용량을 예측합니다.',
-      early: '초기 충/방전 데이터를 활용해 상용 배터리 용량을 조기에 예측합니다.',
-      image: '양극재 이미지로 열화 상태를 예측하고 정량화합니다.',
-      lstm: '초기 사이클 데이터를 기반으로 LSTM으로 수명 시험 결과를 예측합니다.',
-      inter: '머신러닝 기반 면간거리 측정으로 분석 효율을 높이고 자동화합니다.',
-      llmmd: 'LLM을 활용한 MD 시뮬레이션으로 전해질 물성을 자동 추정합니다.',
-      shelf: '충전도(SOC) 정보를 활용해 보관(저장) 수명 특성을 예측합니다.'
+      bo: 'Bayesian Optimization으로 목표 용량을 만족하는 파라미터/설계 지침을 탐색합니다.',
+      'temp-life': '온도 변화를 주요 피처로 하여 사이클 수명 변화를 예측/분석합니다.',
+      'curr-life': '전류 조건(레이트) 변화에 따른 수명 특성을 모델링합니다.',
+      'soc-cycle': 'SOC 프로파일을 활용해 사이클 수명 구간별 성능 저하를 추정합니다.',
+      shelf: '보관(저장) 조건에서의 용량 보존 특성을 예측합니다.',
+      'sem-img': 'SEM 이미지를 기반으로 양극재 열화 지표를 추정하고 정량화합니다.',
+      'tem-img': 'TEM 이미지로 양극의 구조적 열화 상태를 분류/회귀합니다.',
+      'eis-predict': 'EIS 스펙트럼으로 향후 성능 변화(저하/잔여수명)를 조기 예측합니다.',
+      'llmmd-video': 'LLM을 결합한 MD 워크플로우로 전해질 물성 예측 과정을 자동화(영상 데모).'
+    };
+
+    // ▶ 기존 ‘충전도 기반 보관 수명 특성 예측 모델’이 열던 페이지 경로를 여기에 넣어 주세요.
+    //    예: 'shelf.html' 또는 'ml-shelf.html'
+    const ROUTES = {
+      shelf: 'shelf.html'  // ← 필요 시 이 경로만 기존과 동일하게 수정
+      'curr-life': 'model-curr-life.html'
+      'temp-life': 'model-temp-life.html'
     };
 
     async function loadBackground(){
@@ -188,9 +200,18 @@
 
     document.querySelectorAll('.ml-item').forEach(btn=>{
       btn.addEventListener('click', ()=>{
+        // 선택 상태 표시
         document.querySelectorAll('.ml-item').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
+
         const id = btn.dataset.id;
+        // 라우팅이 정의된 항목은 즉시 이동
+        if (ROUTES[id]) {
+          window.location.href = ROUTES[id];
+          return;
+        }
+
+        // 그 외는 상세영역 설명만 출력
         detailTitle.textContent = btn.textContent.trim();
         detailDesc.textContent = DESCS[id] || '';
         detail.classList.add('open');

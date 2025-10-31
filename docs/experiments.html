@@ -4,17 +4,17 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>실험 데이터 — STEAM Project Hub</title>
-  <meta name="description" content="AFM, TEM, SEM, TEY, XPS, XRD, STXM, PXM, FIB-SEM Tomography, EIS 등 실험 데이터셋 선택 페이지" />
+  <meta name="description" content="AFM, TEM, SEM, Cycling Data, XPS, XRD, STXM, PXM, FIB-SEM Tomography, EIS 등 실험 데이터셋 선택 페이지" />
   <style>
     :root{
-      --bg:#0b0d12; --fg:#e8ecf3; --muted:#a5afc2; --card:#12161f; --border:#1c2230;
-      --accent:#7c9cff; --accent2:#00d1b2; --shadow:0 10px 30px rgba(0,0,0,.35); --r:18px;
+      --bg:#f7f9fc; --fg:#0d1117; --muted:#536075; --card:#ffffff; --border:#e6eaf1;
+      --accent:#3b82f6; --accent2:#14b8a6; --shadow:0 10px 30px rgba(0,0,0,.35); --r:18px;
       --pop-dur:.8s; --pop-ease:cubic-bezier(.16,1,.3,1); --pop-scale:1.03;
-      --overlay-dur:.5s; --modal-dur:.55s; --modal-ease:cubic-bezier(.16,1,.3,1);
+      color-scheme: light;
     }
-    @media (prefers-color-scheme: light){
+    /* @media (prefers-color-scheme: light){
       :root{ --bg:#f7f9fc; --fg:#0d1117; --muted:#536075; --card:#ffffff; --border:#e6eaf1; --accent:#3b82f6; --accent2:#14b8a6; }
-    }
+    } */
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",Arial}
@@ -39,35 +39,20 @@
     .card:hover,.card:focus-within{transform:translateY(-6px) scale(var(--pop-scale)); box-shadow:0 20px 50px rgba(0,0,0,.5); filter:brightness(1.02)}
     .card .uploader{position:absolute; right:12px; top:12px}
 
-    figure{margin:0; border:1px dashed var(--border); border-radius:14px; overflow:hidden; background:color-mix(in srgb,var(--card),transparent 40%);}
+    figure{margin:0; border:1px dashed var(--border); border-radius:14px; overflow:hidden; background:color-mix(in srgb,var(--card),transparent 40%)}
     .preview{width:100%; aspect-ratio:16/9; object-fit:cover; display:block}
     figcaption{font-weight:800; text-align:center; margin-top:10px}
 
+    .actions{display:flex; justify-content:center; margin-top:12px}
+    .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:12px; border:1px solid var(--border); cursor:pointer; background:rgba(255,255,255,.03)}
+    .btn.primary{background:linear-gradient(180deg,var(--accent),#6b86ff); color:#fff; border-color:transparent}
+    .btn.disabled{opacity:.6; pointer-events:none; cursor:not-allowed}
+
     .uploader input{display:none}
-    .btn{display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px; border:1px solid var(--border); cursor:pointer; background:rgba(255,255,255,.03)}
 
     footer{padding:40px 0 60px; color:var(--muted)}
 
-    .modal{position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,0); opacity:0; pointer-events:none; transition:background var(--overlay-dur) ease, opacity var(--overlay-dur) ease}
-    .modal.open{background:rgba(0,0,0,.45); opacity:1; pointer-events:auto}
-    .panel{width:min(96vw, 980px); max-height:90vh; background:var(--card); border:1px solid var(--border); border-radius:20px; box-shadow:0 30px 90px rgba(0,0,0,.6);
-      transform:translateY(18px) scale(.98); opacity:.98; transition:transform var(--modal-dur) var(--modal-ease), opacity var(--modal-dur) var(--modal-ease)}
-    .modal.open .panel{transform:translateY(0) scale(1); opacity:1}
-    .panel header{display:flex; justify-content:space-between; align-items:center; padding:16px 18px; border-bottom:1px solid var(--border)}
-    .panel header h2{margin:0; font-size:20px}
-    .close{border:1px solid var(--border); background:transparent; color:var(--fg); border-radius:10px; padding:6px 10px; cursor:pointer}
-    .panel .inner{display:grid; grid-template-columns:1fr; gap:18px; padding:18px}
-    @media (min-width:900px){ .panel .inner{grid-template-columns:1.2fr 1fr} }
-    .bigpreview{border:1px dashed var(--border); border-radius:14px; overflow:hidden; display:grid; place-items:center; background:color-mix(in srgb,var(--card),transparent 40%)}
-    .bigpreview img{max-width:100%; height:auto; display:block}
-
-    .attachments h3{margin:0 0 8px}
-    .chips{display:grid; gap:10px}
-    .chip{display:flex; justify-content:space-between; align-items:center; gap:10px; border:1px solid var(--border); border-radius:12px; padding:10px 12px}
-    .chip a{font-weight:700}
-    .empty{color:var(--muted); font-size:14px}
-
-    /* [CHANGED] 대표 이미지 업로더는 숨김 유지 */
+    /* 대표 이미지 업로더 숨김 유지 */
     .card .uploader { display: none !important; }
   </style>
 </head>
@@ -85,89 +70,105 @@
     <div class="crumbs"><a href="index.html">홈</a> › <a href="database.html">데이터베이스</a> › <span>실험 데이터</span></div>
     <section class="hero" aria-label="타이틀">
       <h1>실험 데이터 (총 10개)</h1>
-      <!-- [CHANGED] 안내 문구: 정적 파일만 다운로드 -->
-      <p>블록을 클릭하면 같은 화면에서 팝업이 열리고, <strong>사전에 업로드된 정적 데이터셋</strong>을 다운로드할 수 있습니다.</p>
+      <p>각 블록의 <strong>다운로드</strong> 버튼을 클릭하면, 연결된 Google Drive 링크로 이동합니다.</p>
     </section>
 
     <!-- Row 1: 4 items -->
     <section class="row cols-4" aria-label="Row 1">
-      <article class="card" data-id="afm" role="button" tabindex="0">
+      <article class="card" data-id="afm" tabindex="0">
         <div class="uploader"><label class="btn" for="afmImg">대표 이미지</label><input id="afmImg" type="file" accept="image/*"></div>
         <figure>
           <img id="afmPreview" class="preview" alt="AFM 미리보기" src="assets/AFM_thumb.png" />
           <figcaption>AFM (Atomic Force Microscopy)</figcaption>
         </figure>
+        <div class="actions"><a id="afmDl" class="btn">다운로드</a></div>
       </article>
-      <article class="card" data-id="tem" role="button" tabindex="0">
+
+      <article class="card" data-id="tem" tabindex="0">
         <div class="uploader"><label class="btn" for="temImg">대표 이미지</label><input id="temImg" type="file" accept="image/*"></div>
         <figure>
           <img id="temPreview" class="preview" alt="TEM 미리보기" src="assets/TEM_thumb.png" />
           <figcaption>TEM (Transmission Electron Microscopy)</figcaption>
         </figure>
+        <div class="actions"><a id="temDl" class="btn">다운로드</a></div>
       </article>
-      <article class="card" data-id="sem" role="button" tabindex="0">
+
+      <article class="card" data-id="sem" tabindex="0">
         <div class="uploader"><label class="btn" for="semImg">대표 이미지</label><input id="semImg" type="file" accept="image/*"></div>
         <figure>
           <img id="semPreview" class="preview" alt="SEM 미리보기" src="assets/SEM_thumb.png" />
           <figcaption>SEM (Scanning Electron Microscopy)</figcaption>
         </figure>
+        <div class="actions"><a id="semDl" class="btn">다운로드</a></div>
       </article>
-      <article class="card" data-id="tey" role="button" tabindex="0">
-        <div class="uploader"><label class="btn" for="teyImg">대표 이미지</label><input id="teyImg" type="file" accept="image/*"></div>
+
+      <article class="card" data-id="cycling" tabindex="0">
+        <div class="uploader"><label class="btn" for="cyclingImg">대표 이미지</label><input id="cyclingImg" type="file" accept="image/*"></div>
         <figure>
-          <img id="teyPreview" class="preview" alt="TEY 미리보기" src="assets/TEY_thumb.png" />
-          <figcaption>TEY (Total Electron Yield)</figcaption>
+          <img id="cyclingPreview" class="preview" alt="Cycling Data 미리보기" src="assets/CYCLING_thumb.png" />
+          <figcaption>Cycling Data (Charge/Discharge Logs)</figcaption>
         </figure>
+        <div class="actions"><a id="cyclingDl" class="btn">다운로드</a></div>
       </article>
     </section>
 
     <!-- Row 2: 4 items -->
     <section class="row cols-4" aria-label="Row 2">
-      <article class="card" data-id="xps" role="button" tabindex="0">
+      <article class="card" data-id="xps" tabindex="0">
         <div class="uploader"><label class="btn" for="xpsImg">대표 이미지</label><input id="xpsImg" type="file" accept="image/*"></div>
         <figure>
           <img id="xpsPreview" class="preview" alt="XPS 미리보기" src="assets/XPS_thumb.png" />
           <figcaption>XPS (X-ray Photoelectron Spectroscopy)</figcaption>
         </figure>
+        <div class="actions"><a id="xpsDl" class="btn">다운로드</a></div>
       </article>
-      <article class="card" data-id="xrd" role="button" tabindex="0">
+
+      <article class="card" data-id="xrd" tabindex="0">
         <div class="uploader"><label class="btn" for="xrdImg">대표 이미지</label><input id="xrdImg" type="file" accept="image/*"></div>
         <figure>
           <img id="xrdPreview" class="preview" alt="XRD 미리보기" src="assets/XRD_thumb.png" />
           <figcaption>XRD (X-ray Diffraction)</figcaption>
         </figure>
+        <div class="actions"><a id="xrdDl" class="btn">다운로드</a></div>
       </article>
-      <article class="card" data-id="stxm" role="button" tabindex="0">
+
+      <article class="card" data-id="stxm" tabindex="0">
         <div class="uploader"><label class="btn" for="stxmImg">대표 이미지</label><input id="stxmImg" type="file" accept="image/*"></div>
         <figure>
           <img id="stxmPreview" class="preview" alt="STXM 미리보기" src="assets/STXM_thumb.png" />
           <figcaption>STXM (Scanning Transmission X-ray Microscopy)</figcaption>
         </figure>
+        <div class="actions"><a id="stxmDl" class="btn">डाउन로드</a></div>
       </article>
-      <article class="card" data-id="pxm" role="button" tabindex="0">
+
+      <article class="card" data-id="pxm" tabindex="0">
         <div class="uploader"><label class="btn" for="pxmImg">대표 이미지</label><input id="pxmImg" type="file" accept="image/*"></div>
         <figure>
           <img id="pxmPreview" class="preview" alt="PXM 미리보기" src="assets/PXM_thumb.png" />
           <figcaption>PXM (Photoemission X-ray Microscopy)</figcaption>
         </figure>
+        <div class="actions"><a id="pxmDl" class="btn">다운로드</a></div>
       </article>
     </section>
 
     <!-- Row 3: 2 items -->
     <section class="row cols-2" aria-label="Row 3">
-      <article class="card" data-id="fibsem" role="button" tabindex="0">
+      <article class="card" data-id="fibsem" tabindex="0">
         <div class="uploader"><label class="btn" for="fibsemImg">대표 이미지</label><input id="fibsemImg" type="file" accept="image/*"></div>
         <figure>
           <img id="fibsemPreview" class="preview" alt="FIB-SEM 미리보기" src="assets/FIB_thumb.png" />
           <figcaption>FIB-SEM Tomography (Focused Ion Beam-SEM)</figcaption>
         </figure>
+        <div class="actions"><a id="fibsemDl" class="btn">다운로드</a></div>
       </article>
-      <article class="card" data-id="eis" role="button" tabindex="0">
+
+      <article class="card" data-id="eis" tabindex="0">
         <div class="uploader"><label class="btn" for="eisImg">대표 이미지</label><input id="eisImg" type="file" accept="image/*"></div>
         <figure>
           <img id="eisPreview" class="preview" alt="EIS 미리보기" src="assets/EIS_thumb.png" />
           <figcaption>EIS (Electrochemical Impedance Spectroscopy)</figcaption>
         </figure>
+        <div class="actions"><a id="eisDl" class="btn">다운로드</a></div>
       </article>
     </section>
   </main>
@@ -179,121 +180,48 @@
     </div>
   </footer>
 
-  <!-- Modal for attachments -->
-  <div class="modal" id="datasetModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
-    <div class="panel">
-      <header>
-        <h2 id="modalTitle">데이터셋</h2>
-        <button class="close" id="closeModal" aria-label="닫기">닫기</button>
-      </header>
-      <div class="inner">
-        <div class="bigpreview"><img id="modalImg" alt="선택한 데이터셋 미리보기"></div>
-        <div class="attachments">
-          <h3>첨부된 데이터셋</h3>
-
-          <!-- [REMOVED] 동적 업로드 UI (사용자 업로드 금지) -->
-          <!--
-          <div class="attach-actions">
-            <label class="btn" for="attachInput">파일 추가</label>
-            <input id="attachInput" type="file" multiple />
-          </div>
-          -->
-
-          <!-- [CHANGED] 정적 파일만 표시되는 영역 -->
-          <div class="chips" id="attachList"><div class="empty">아직 첨부된 파일이 없습니다.</div></div>
-          <p class="empty" style="margin-top:8px">* 관리자가 <code>docs/datasets/</code> 폴더에 올린 파일만 표시됩니다.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- [REMOVED] 이미지 영구저장 helper & 호출부 (이번 페이지는 정적 썸네일 사용) -->
-  <!-- 공통 헬퍼 persistPreview 및 persistPreview(...) 호출을 제거했습니다. -->
-
-  <!-- 페이지 스크립트 -->
   <script>
+    // 올해
     document.getElementById('y').textContent = new Date().getFullYear();
 
-    // ===== [CHANGED] 정적 데이터셋 매핑 =====
-    // docs/ 루트 기준 상대경로. 예: docs/datasets/AFM.xlsx
-    // 필요에 따라 각 항목 files 배열에 파일을 추가하세요.
-    const DATASETS = {
-      afm:   { name: 'AFM (Atomic Force Microscopy)', files: [
-        { name: 'AFM.xlsx', url: 'datasets/AFM.xlsx' } // 예시
-      ]},
-      tem:   { name: 'TEM (Transmission Electron Microscopy)', files: [] },
-      sem:   { name: 'SEM (Scanning Electron Microscopy)', files: [] },
-      tey:   { name: 'TEY (Total Electron Yield)', files: [] },
-      xps:   { name: 'XPS (X-ray Photoelectron Spectroscopy)', files: [] },
-      xrd:   { name: 'X-ray Diffraction (XRD)', files: [] },
-      stxm:  { name: 'STXM (Scanning Transmission X-ray Microscopy)', files: [] },
-      pxm:   { name: 'PXM (Photoemission X-ray Microscopy)', files: [] },
-      fibsem:{ name: 'FIB-SEM Tomography (Focused Ion Beam-SEM)', files: [] },
-      eis:   { name: 'EIS (Electrochemical Impedance Spectroscopy)', files: [] }
+    // ✅ 각 데이터셋 → 구글 드라이브 링크 매핑 (여기에만 링크 채우면 됨)
+    //   - 드라이브 '파일' 직접 링크라면:
+    //       https://drive.google.com/file/d/FILE_ID/view?usp=drive_link
+    //     → 다운로드 바로가기:
+    //       https://drive.google.com/uc?export=download&id=FILE_ID
+    //   - 폴더 링크는 그대로 사용 가능(새 탭에서 열림)
+    const DRIVE_LINKS = {
+      afm:    'https://drive.google.com/drive/folders/1WKQiTB24VrLCixWQ96-MAoypvfAMcOFo?usp=drive_link',
+      tem:    'https://drive.google.com/drive/folders/1wScweViUADfc5OPtunWVfqPu0xCe81Pn?usp=sharing',
+      sem:    'https://drive.google.com/drive/folders/1HcoX_HU1GujgvnucEgbhgURxjdt6xw_B?usp=sharing',
+      cycling:'https://drive.google.com/drive/folders/1mP7aTJo44pzO6UO6kdCU65MU2aNqXpSR?usp=sharing', // 폴더 예시
+      xps:    'https://drive.google.com/drive/folders/1izmgyFcHjE6W-JqJoNG389mK0MmbaykJ?usp=sharing',
+      xrd:    'https://drive.google.com/drive/folders/1-rDnU4c-pRjMm5MCXMfJIClG0UrZsHv8?usp=sharing',
+      stxm:   'https://drive.google.com/drive/folders/1gBD3O78T-gHD4KNmuljqws6rpIU9ASud?usp=sharing',
+      pxm:    'https://drive.google.com/drive/folders/1Rnz3ExHJmn7PC_OhS6amsXKJ61spTk7g?usp=sharing',
+      fibsem: 'https://drive.google.com/uc?export=download&id=YOUR_FILE_ID_FIBSEM',
+      eis:    'https://drive.google.com/drive/folders/1z8-RPwRgESjg-iPrTAKisErhGzkXUHDh?usp=sharing'
     };
 
-    // ===== Modal 로직 (업로드 관련 코드 삭제) =====
-    const modal = document.getElementById('datasetModal');
-    const closeBtn = document.getElementById('closeModal');
-    const modalTitle = document.getElementById('modalTitle');
-    const modalImg = document.getElementById('modalImg');
-    const attachList = document.getElementById('attachList');
-
-    function openModal(id){
-      const cardImg = document.getElementById(id+'Preview');
-      modalImg.src = cardImg.src; modalImg.alt = (DATASETS[id]?.name || '데이터') + ' 대표 이미지';
-      modalTitle.textContent = DATASETS[id]?.name || '데이터셋';
-      renderList(id);
-      modal.hidden = false; modal.classList.add('open');
-      closeBtn.focus();
-      document.addEventListener('keydown', escToClose);
-    }
-    function closeModal(){
-      modal.classList.remove('open');
-      modal.addEventListener('transitionend', ()=>{ modal.hidden = true; }, { once:true });
-      document.removeEventListener('keydown', escToClose);
-    }
-    function escToClose(e){ if(e.key==='Escape') closeModal(); }
-    modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
-    closeBtn.addEventListener('click', closeModal);
-
-    // [CHANGED] 정적 파일만 렌더링
-    function renderList(id){
-      const files = (DATASETS[id] && DATASETS[id].files) || [];
-      attachList.innerHTML = '';
-      if(files.length === 0){
-        const emp = document.createElement('div'); emp.className='empty';
-        emp.textContent='아직 첨부된 파일이 없습니다.'; attachList.appendChild(emp); return;
-      }
-      files.forEach(f=>{
-        const chip = document.createElement('div'); chip.className='chip';
-
-        const left = document.createElement('div');
-        const a = document.createElement('a');
-        a.href = encodeURI(f.url);             // 공백/한글 파일명 대비
-        a.download = f.name;
-        a.textContent = f.name;
+    // 버튼에 링크 주입 + 상태 표시
+    const ids = ['afm','tem','sem','cycling','xps','xrd','stxm','pxm','fibsem','eis'];
+    ids.forEach(id=>{
+      const a = document.getElementById(id+'Dl');
+      const url = DRIVE_LINKS[id];
+      if(url && typeof url === 'string' && url.trim()){
+        a.href = url;
+        a.target = '_blank';
         a.rel = 'noopener';
-        a.target = '_blank';                   // 새 탭 (브라우저가 미리보기 지원 시 열림)
-        left.appendChild(a);
-
-        const right = document.createElement('div');
-        const dl = document.createElement('a');
-        dl.href = encodeURI(f.url);
-        dl.download = f.name;
-        dl.textContent = '다운로드';
-        dl.className = 'btn';
-        right.appendChild(dl);
-
-        chip.appendChild(left); chip.appendChild(right);
-        attachList.appendChild(chip);
-      });
-    }
-
-    // 카드 클릭 → 모달 오픈 (대표 이미지 업로더 클릭은 무시)
-    document.querySelectorAll('.card').forEach(card=>{
-      card.addEventListener('click', (e)=>{ if(e.target.closest('.uploader')) return; openModal(card.dataset.id); });
-      card.addEventListener('keydown', (e)=>{ if(e.target.closest('.uploader')) return; if(e.key==='Enter'||e.key===' ') { e.preventDefault(); openModal(card.dataset.id); } });
+        a.classList.add('primary');
+        a.textContent = '다운로드';
+        // 파일/폴더 유형에 따라 title 힌트
+        a.title = url.includes('/folders/') ? 'Google Drive 폴더 열기' : 'Google Drive에서 다운로드';
+      }else{
+        a.href = 'javascript:void(0)';
+        a.classList.add('disabled');
+        a.textContent = '준비중';
+        a.title = '링크가 아직 등록되지 않았습니다.';
+      }
     });
   </script>
 </body>
